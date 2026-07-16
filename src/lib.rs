@@ -43,8 +43,10 @@ impl App {
         match key.code {
             KeyCode::Esc => true,
             KeyCode::Enter => {
-                let message = self.interface.pop_input();
-                self.session.state_mut().add_message(dbg!(message));
+                let request = self.interface.pop_input();
+                let response = request.clone();
+                self.session.state_mut().add_message(request);
+                self.session.state_mut().add_message(response);
                 false
             }
             _ => {
