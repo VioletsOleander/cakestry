@@ -10,5 +10,5 @@ fn main() -> Result<()> {
     let _ = Args::parse();
     let mut app = App::default();
 
-    ratatui::run(|terminal| app.run(terminal))
+    app.run()
 }

@@ -1,9 +1,8 @@
 use anyhow::Result;
-use crossterm::event::{EnableMouseCapture, Event, KeyCode};
-use crossterm::execute;
-use ratatui::DefaultTerminal;
+use crossterm::event::{Event, KeyCode};
 
 mod session;
+mod terminal;
 
 /// Session manager, dispatch and delegate work to current session
 #[derive(Default)]
@@ -12,8 +11,8 @@ pub struct App {
 }
 
 impl App {
-    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
-        execute!(std::io::stdout(), EnableMouseCapture)?;
+    pub fn run(&mut self) -> Result<()> {
+        let mut terminal = terminal::init();
 
         loop {
             terminal.draw(|frame| {
@@ -25,6 +24,8 @@ impl App {
                 event => self.session.handle_event(event),
             };
         }
+
+        terminal::restore();
 
         Ok(())
     }
