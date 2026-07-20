@@ -9,8 +9,17 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::{DefaultTerminal, Terminal};
 use std::io::stdout;
 
+/// Initialize and return a `DefaultTerminal` instance.
 pub fn init() -> DefaultTerminal {
     try_init().expect("failed to initialize terminal")
+}
+
+/// Restore the terminal to its original state.
+pub fn restore() {
+    if let Err(err) = try_restore() {
+        // There's not much we can do if restoring the terminal fails, so we just print the error
+        std::eprintln!("Failed to restore terminal: {err}");
+    }
 }
 
 fn try_init() -> std::io::Result<DefaultTerminal> {
@@ -19,13 +28,6 @@ fn try_init() -> std::io::Result<DefaultTerminal> {
     execute!(stdout(), EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout());
     Terminal::new(backend)
-}
-
-pub fn restore() {
-    if let Err(err) = try_restore() {
-        // There's not much we can do if restoring the terminal fails, so we just print the error
-        std::eprintln!("Failed to restore terminal: {err}");
-    }
 }
 
 fn try_restore() -> std::io::Result<()> {

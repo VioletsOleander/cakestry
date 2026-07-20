@@ -4,7 +4,7 @@ use crossterm::event::{Event, KeyCode};
 mod session;
 mod terminal;
 
-/// Session manager, dispatch and delegate work to current session
+/// Session manager, dispatch and delegate work to current session.
 #[derive(Default)]
 pub struct App {
     session: Box<session::Session>,
