@@ -4,6 +4,7 @@ use ratatui::style::{Color, Style};
 use ratatui::text::Span;
 use ratatui::widgets::Widget;
 
+/// A widget to display a `>` symbol.
 #[derive(Default)]
 pub struct Angle;
 

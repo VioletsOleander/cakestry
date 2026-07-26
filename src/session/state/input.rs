@@ -1,13 +1,19 @@
 use std::ops::Index;
 
-pub struct Lines {
+/// Lines of text edited by the user.
+pub struct UserInput {
     lines: Vec<String>,
 }
 
-impl Lines {
+impl UserInput {
     /// Return the number of contained lines.
     pub fn len(&self) -> usize {
         self.lines.len()
+    }
+
+    /// Return the contained lines.
+    pub fn lines(&self) -> &[String] {
+        &self.lines
     }
 
     /// Insert `ch` into the line indexed by `line_idx`, at `byte_idx`.
@@ -45,16 +51,24 @@ impl Lines {
     }
 }
 
-impl From<Vec<String>> for Lines {
+impl From<Vec<String>> for UserInput {
     fn from(lines: Vec<String>) -> Self {
-        Lines { lines }
+        UserInput { lines }
     }
 }
 
-impl Index<usize> for Lines {
+impl Index<usize> for UserInput {
     type Output = String;
 
     fn index(&self, line_idx: usize) -> &Self::Output {
         &self.lines[line_idx]
+    }
+}
+
+impl Default for UserInput {
+    fn default() -> Self {
+        UserInput {
+            lines: vec![String::new()],
+        }
     }
 }
