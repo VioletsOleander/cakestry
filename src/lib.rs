@@ -13,6 +13,8 @@ pub struct App {
 
 impl App {
     pub fn run(&mut self) -> Result<()> {
+        init_subscriber();
+
         let mut terminal = terminal::init();
 
         loop {
@@ -30,4 +32,14 @@ impl App {
 
         Ok(())
     }
+}
+
+/// Initialize the default global tracing subscriber.
+fn init_subscriber() {
+    let appender = tracing_appender::rolling::never(".", "cakestry.log");
+    let subscriber_builder = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_writer(appender);
+
+    subscriber_builder.init();
 }

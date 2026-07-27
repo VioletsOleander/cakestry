@@ -72,13 +72,12 @@ impl Session {
     fn remove_char(&mut self) {
         let (line_idx, byte_idx) = self.cursor.position();
 
-        // Delete current line's '\n' char
-        // Equivalent to joining current line and next line
         if byte_idx == self.user_input[line_idx].len() {
             if line_idx == self.user_input.len() {
                 return;
             }
 
+            // Delete current line's '\n' char, equivalent to joining current line with next line.
             let next_line = self.user_input.remove_line(line_idx + 1);
             self.user_input.insert_str(line_idx, byte_idx, &next_line);
             return;
@@ -90,30 +89,30 @@ impl Session {
     fn remove_prev_char(&mut self) {
         let (line_idx, mut byte_idx) = self.cursor.position();
 
-        // Delete previous line's '\n' char
-        // Equivalent to joining previous line and current line
         if byte_idx == 0 {
             if line_idx == 0 {
                 return;
             }
 
+            // Delete previous line's '\n' char, equivalent to joining previous line with current line.
             let prev_line_idx = line_idx - 1;
             let prev_line_len = self.user_input[prev_line_idx].len();
-            let curr_line = self.user_input.remove_line(prev_line_idx);
+            let curr_line = self.user_input.remove_line(line_idx);
+
+            tracing::info!(prev_line_len);
 
             self.user_input
-                .insert_str(prev_line_idx, dbg!(prev_line_len), &curr_line);
+                .insert_str(prev_line_idx, prev_line_len, &curr_line);
             self.cursor.jump(prev_line_idx, prev_line_len);
 
             return;
         }
 
-        // Find previous char's byte index
+        // Find previous char's starting byte index.
         let bytes = self.user_input[line_idx].as_bytes();
-
-        // UTF-8 contiuation bytes all has the form of 0b10xx_xxxx
-        // By UTF-8's design, the number of bytes to go back is at most 3
         loop {
+            // The UTF-8 contiuation bytes all has a form of 0b10xx_xxxx.
+            // The number of bytes to go back is at most 3 by the design of UTF-8.
             byte_idx -= 1;
             if (bytes[byte_idx] & 0b1100_0000) != 0b1000_0000 {
                 break;
