@@ -1,9 +1,12 @@
 use crate::session::Session;
-use crate::widget::{Query, Reply, ReservedWidth, Separator, Widget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::borrow::Cow;
 use std::cmp;
+
+mod widget;
+
+use widget::{Query, Reply, ReservedWidth, Separator, Widget};
 
 impl Session {
     pub fn render(&mut self, area: Rect, buf: &mut Buffer) {

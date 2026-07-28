@@ -3,7 +3,6 @@ use crossterm::event::{Event, KeyCode};
 
 mod session;
 mod terminal;
-mod widget;
 
 /// Session manager, dispatch and delegate work to current session.
 #[derive(Default)]

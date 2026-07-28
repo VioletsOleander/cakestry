@@ -1,4 +1,4 @@
-use crate::widget::Widget;
+use super::Widget;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::{Fill, Widget as RatatuiWidget};
