@@ -18,7 +18,7 @@ impl App {
 
         loop {
             terminal.draw(|frame| {
-                self.session.render(frame.area(), frame.buffer_mut());
+                self.session.display(frame);
             })?;
 
             match crossterm::event::read()? {

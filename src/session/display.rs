@@ -1,4 +1,5 @@
 use super::Session;
+use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
@@ -10,8 +11,15 @@ mod widget;
 use widget::{Query, Reply, ReservedWidth, Separator, Widget};
 
 impl Session {
-    pub fn render(&mut self, area: Rect, buf: &mut Buffer) {
-        // The render area in y coordinate in the document is [view_start, view_end).
+    /// Display the session on the given `frame`.
+    ///
+    /// A `Session` will virtually render all exchanges on a virtual document with larger length than the viewport of
+    /// the `frame`. The actually rendered area in the y coordinate of the document is `[self.view_start,
+    /// self.view_end)`, where `self.view_start` is affected by mouse scroll.
+    pub fn display(&mut self, frame: &mut Frame) {
+        let area = frame.area();
+        let buf = frame.buffer_mut();
+
         self.offset = 0;
         self.view_end = self.view_start + area.height as usize;
 
