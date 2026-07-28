@@ -48,12 +48,9 @@ impl<'a> Widget for Query<'a> {
                 .areas(area);
 
         for i in 0..spans_area.height {
-            if i < self.offset {
-                continue;
-            }
-
             let span_area = Rect::new(spans_area.x, spans_area.y + i, spans_area.width, 1);
-            if i == 0 {
+
+            if i == 0 && self.offset == 0 {
                 let prompt = Angle::new(self.prompt_style);
                 prompt.render(span_area, buf);
             } else {
