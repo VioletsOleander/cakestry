@@ -1,56 +1,46 @@
-use crate::widget::{HeightMeasurable, Renderable, Scrollable};
+use crate::widget::{ReservedWidth, Widget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::text::Line;
-use ratatui::widgets::{Paragraph, Widget};
+use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
+use std::borrow::Cow;
 
 /// A widget to display assistant reply.
 pub struct Reply<'a> {
-    lines: &'a [String],
+    wrapped_lines: Vec<Cow<'a, str>>,
     /// Scroll offset in y coordinate
     offset: u16,
 }
 
 impl<'a> Reply<'a> {
-    pub fn new(lines: &'a [String]) -> Self {
+    pub fn new(wrapped_lines: Vec<Cow<'a, str>>) -> Self {
         Reply {
-            lines: lines,
+            wrapped_lines,
             offset: 0,
         }
     }
 }
 
-impl<'a> Scrollable for Reply<'a> {
+impl<'a> Widget for Reply<'a> {
+    fn render(&self, area: Rect, buf: &mut Buffer)
+    where
+        Self: Sized,
+    {
+        Paragraph::new(self.wrapped_lines.as_slice())
+            .scroll((self.offset, 0))
+            .render(area, buf);
+    }
+
+    fn height(&self) -> usize {
+        self.wrapped_lines.len()
+    }
+
     fn scroll(&mut self, offset: u16) {
         self.offset = offset;
     }
 }
 
-impl<'a> HeightMeasurable for Reply<'a> {
-    fn height(&self, width: u16) -> usize {
-        let wrapped_lines = self
-            .lines
-            .iter()
-            .flat_map(|line| textwrap::wrap(line, width as usize));
-
-        wrapped_lines.count()
-    }
-}
-
-impl<'a> Renderable for Reply<'a> {
-    fn render(&self, area: Rect, buf: &mut Buffer)
-    where
-        Self: Sized,
-    {
-        let wrapped_lines: Vec<_> = self
-            .lines
-            .iter()
-            .flat_map(|line| textwrap::wrap(line, area.width as usize))
-            .map(Line::from)
-            .collect();
-
-        Paragraph::new(wrapped_lines)
-            .scroll((self.offset, 0))
-            .render(area, buf);
+impl<'a> ReservedWidth for Reply<'a> {
+    fn reserved_width() -> usize {
+        0
     }
 }

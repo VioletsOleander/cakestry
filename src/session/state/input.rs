@@ -12,7 +12,7 @@ impl UserInput {
     }
 
     /// Return the contained lines.
-    pub fn lines(&self) -> &[String] {
+    pub fn lines(&self) -> &Vec<String> {
         &self.lines
     }
 

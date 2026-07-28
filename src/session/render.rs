@@ -1,7 +1,8 @@
 use crate::session::Session;
-use crate::widget::{HeightMeasurable, Query, Renderable, Reply, Scrollable};
+use crate::widget::{Query, Reply, ReservedWidth, Separator, Widget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use std::borrow::Cow;
 use std::cmp;
 
 impl Session {
@@ -10,36 +11,89 @@ impl Session {
         self.offset = 0;
         self.view_end = self.view_start + area.height as usize;
 
-        // for message in &self.messsages {
-        //     if self.offset >= self.view_end {
-        //         return;
-        //     }
-        //
-        //     if message.from_user() {
-        //         let mut request = Request::new(message.content());
-        //         self.offset += self.render_widget(&mut request, area, buf);
-        //     } else {
-        //         let mut response = Response::new(message.content());
-        //         self.offset += self.render_widget(&mut response, area, buf);
-        //     }
-        // }
+        // Render (query, seperator, reply) triplet.
+        for exchange in &self.exchanges {
+            if self.offset >= self.view_end {
+                return;
+            } else {
+                let wrapped_lines = self.wrap_lines(
+                    exchange.query_lines(),
+                    Query::reserved_width(),
+                    area.width as usize,
+                );
+                let widget = Query::new(wrapped_lines);
 
-        if self.offset >= self.view_end {
-            return;
+                let height = self.render_widget(widget, area, buf);
+                self.offset += height;
+            }
+
+            if self.offset >= self.view_end {
+                return;
+            } else {
+                let widget = Separator::default();
+
+                let height = self.render_widget(widget, area, buf);
+                self.offset += height;
+            }
+
+            if self.offset >= self.view_end {
+                return;
+            } else {
+                let wrapped_lines = self.wrap_lines(
+                    exchange.reply_lines(),
+                    Reply::reserved_width(),
+                    area.width as usize,
+                );
+                let widget = Reply::new(wrapped_lines);
+
+                let height = self.render_widget(widget, area, buf);
+                self.offset += height;
+            }
         }
 
-        let mut input_query = Query::new(self.user_input.lines());
-        self.render_widget(&mut input_query, area, buf);
+        // Render user input area.
+        if self.offset >= self.view_end {
+            return;
+        } else {
+            let wrapped_lines = self.wrap_lines(
+                self.user_input.lines(),
+                Query::reserved_width(),
+                area.width as usize,
+            );
+            let widget = Query::new(wrapped_lines);
+
+            let height = self.render_widget(widget, area, buf);
+            self.offset += height;
+        }
     }
 
-    /// Render given widget into the visible view in the given buffer, and return the rendered widget's height.
+    fn wrap_lines<'a>(
+        &'a self,
+        lines: &'a [String],
+        reserved_with: usize,
+        area_width: usize,
+    ) -> Vec<Cow<'a, str>> {
+        let text_width = area_width
+            .checked_sub(reserved_with)
+            .expect("Reserved width should be less than area width");
+
+        lines
+            .iter()
+            .flat_map(|line| textwrap::wrap(line, text_width))
+            .collect()
+    }
+
+    /// Render `widget` into the visible view in `session_buf`, and return the height of `widget`.
+    ///
+    /// Because the borrow checker does not allow `render_widget` mutabaly inside the `&self.exchanges` loop, we have to
+    /// left the responsibiliy for increasing `self.offset` for that loop instead of doing it inside this method.
     fn render_widget(
         &self,
-        widget: &mut (impl Renderable + Scrollable + HeightMeasurable),
+        mut widget: impl Widget,
         session_area: Rect,
         session_buf: &mut Buffer,
     ) -> usize {
-        let widget_height = widget.height(session_area.width);
+        let widget_height = widget.height();
         let widget_start = self.offset;
         let widget_end = widget_start + widget_height;
 

@@ -1,49 +1,32 @@
-use crate::widget::{Angle, Dot, HeightMeasurable, Renderable, Scrollable};
+use crate::widget::{ReservedWidth, Widget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::Line;
-use ratatui::widgets::{Paragraph, Widget};
+use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
+use std::borrow::Cow;
 
-/// A widget to display user input text.
+mod angle;
+mod dot;
+
+use angle::Angle;
+use dot::Dot;
+
+/// A widget to display wrapped user input text.
 pub struct Query<'a> {
-    lines: &'a [String],
+    wrapped_lines: Vec<Cow<'a, str>>,
     /// Scroll offset in y coordinate
     offset: u16,
 }
 
 impl<'a> Query<'a> {
-    pub fn new(lines: &'a [String]) -> Self {
+    pub fn new(wrapped_lines: Vec<Cow<'a, str>>) -> Self {
         Query {
-            lines: lines,
+            wrapped_lines,
             offset: 0,
         }
     }
 }
 
-impl<'a> Scrollable for Query<'a> {
-    fn scroll(&mut self, offset: u16) {
-        self.offset = offset;
-    }
-}
-
-// TODO: Cache wrapped lines, might require very big refactor, like introducing stateful widget
-impl<'a> HeightMeasurable for Query<'a> {
-    fn height(&self, width: u16) -> usize {
-        // span width + space width = 2
-        if width < 2 {
-            return 0;
-        }
-
-        let wrapped_lines = self
-            .lines
-            .iter()
-            .flat_map(|line| textwrap::wrap(line, (width - 2) as usize));
-
-        wrapped_lines.count()
-    }
-}
-
-impl<'a> Renderable for Query<'a> {
+impl<'a> Widget for Query<'a> {
     fn render(&self, area: Rect, buf: &mut Buffer)
     where
         Self: Sized,
@@ -66,15 +49,23 @@ impl<'a> Renderable for Query<'a> {
             }
         }
 
-        let wrapped_lines: Vec<_> = self
-            .lines
-            .iter()
-            .flat_map(|line| textwrap::wrap(line, paragraph_area.width as usize))
-            .map(Line::from)
-            .collect();
-
-        Paragraph::new(wrapped_lines)
+        Paragraph::new(self.wrapped_lines.as_slice())
             .scroll((self.offset, 0))
             .render(paragraph_area, buf);
+    }
+
+    fn height(&self) -> usize {
+        self.wrapped_lines.len()
+    }
+
+    fn scroll(&mut self, offset: u16) {
+        self.offset = offset;
+    }
+}
+
+impl<'a> ReservedWidth for Query<'a> {
+    fn reserved_width() -> usize {
+        // 1 width span + 1 width space
+        2
     }
 }

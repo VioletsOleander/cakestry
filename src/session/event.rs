@@ -15,9 +15,6 @@ impl Session {
             //         //     .push(Message::new(self.textarea.lines().join("\n"), true));
             //         // self.textarea.clear();
             //     }
-            //     _ => {
-            //         self.handle_key(key);
-            //     }
             // },
             Event::Key(key) => {
                 self.handle_key(key);
@@ -98,8 +95,6 @@ impl Session {
             let prev_line_idx = line_idx - 1;
             let prev_line_len = self.user_input[prev_line_idx].len();
             let curr_line = self.user_input.remove_line(line_idx);
-
-            tracing::info!(prev_line_len);
 
             self.user_input
                 .insert_str(prev_line_idx, prev_line_len, &curr_line);

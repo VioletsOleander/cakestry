@@ -1,26 +1,29 @@
-pub mod angle;
-pub mod dot;
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
+
 pub mod query;
 pub mod reply;
+pub mod separator;
 
-pub use angle::Angle;
-pub use dot::Dot;
 pub use query::Query;
 pub use reply::Reply;
+pub use separator::Separator;
 
-pub trait Renderable {
-    /// Render but not consume itself.
-    fn render(&self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer)
+/// A type that can be drawn on the document and the viewport in the session.
+pub trait Widget {
+    /// Render itself to the specified area and buffer.
+    fn render(&self, area: Rect, buf: &mut Buffer)
     where
         Self: Sized;
-}
 
-pub trait HeightMeasurable {
-    /// Return the height of this widget.
-    fn height(&self, width: u16) -> usize;
-}
+    /// Return the height of itself.
+    fn height(&self) -> usize;
 
-pub trait Scrollable {
-    /// Set the scroll offset of this widget.
+    /// Set the scroll offset of itself.
     fn scroll(&mut self, offset: u16);
+}
+
+pub trait ReservedWidth {
+    /// Return the reserved width for non-text area in itself.
+    fn reserved_width() -> usize;
 }
