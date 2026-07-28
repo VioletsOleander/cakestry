@@ -1,3 +1,4 @@
+use std::mem;
 use std::ops::Index;
 
 /// Lines of text edited by the user.
@@ -14,6 +15,18 @@ impl UserInput {
     /// Return the contained lines.
     pub fn lines(&self) -> &Vec<String> {
         &self.lines
+    }
+
+    /// Return true if the input is empty.
+    pub fn is_empty(&self) -> bool {
+        self.lines.len() == 1 && self.lines[0].len() == 0
+    }
+}
+
+impl UserInput {
+    /// Clear the contained lines and return them.
+    pub fn take_lines(&mut self) -> Vec<String> {
+        mem::replace(&mut self.lines, vec![String::new()])
     }
 
     /// Insert `ch` into the line indexed by `line_idx`, at `byte_idx`.

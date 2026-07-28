@@ -1,6 +1,7 @@
 use super::{ReservedWidth, Widget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
 use std::borrow::Cow;
 
@@ -11,18 +12,28 @@ use angle::Angle;
 use dot::Dot;
 
 /// A widget to display wrapped user input text.
+#[derive(Debug)]
 pub struct Query<'a> {
     wrapped_lines: Vec<Cow<'a, str>>,
     /// Scroll offset in y coordinate
     offset: u16,
+    /// Style of the prompt symbol '>'
+    prompt_style: Style,
 }
 
 impl<'a> Query<'a> {
+    /// Create a `Query` from given lines.
     pub fn new(wrapped_lines: Vec<Cow<'a, str>>) -> Self {
         Query {
             wrapped_lines,
             offset: 0,
+            prompt_style: Style::default(),
         }
+    }
+
+    /// Set the style of the prompt sign.
+    pub fn set_prompt_style(&mut self, style: Style) {
+        self.prompt_style = style;
     }
 }
 
@@ -43,7 +54,8 @@ impl<'a> Widget for Query<'a> {
 
             let span_area = Rect::new(spans_area.x, spans_area.y + i, spans_area.width, 1);
             if i == 0 {
-                Angle.render(span_area, buf);
+                let prompt = Angle::new(self.prompt_style);
+                prompt.render(span_area, buf);
             } else {
                 Dot.render(span_area, buf);
             }

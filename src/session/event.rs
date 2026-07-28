@@ -1,21 +1,11 @@
-use crate::session::Session;
+use super::Session;
+use super::state::Exchange;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
 impl Session {
     /// Handle event and modify internal state correspondingly.
     pub fn handle_event(&mut self, event: Event) {
         match event {
-            // Event::Key(key) => match key.code {
-            //     KeyCode::Enter => {
-            //         // if self.textarea.is_empty() {
-            //         //     return;
-            //         // }
-            //         //
-            //         // self.messsages
-            //         //     .push(Message::new(self.textarea.lines().join("\n"), true));
-            //         // self.textarea.clear();
-            //     }
-            // },
             Event::Key(key) => {
                 self.handle_key(key);
             }
@@ -53,10 +43,24 @@ impl Session {
                 KeyCode::Char(ch) => {
                     self.insert_char(ch);
                 }
+                KeyCode::Enter => {
+                    if self.user_input.is_empty() {
+                        return;
+                    }
+                    self.request();
+                }
                 _ => (),
             },
             _ => (),
         }
+    }
+
+    fn request(&mut self) {
+        let query_lines = self.user_input.take_lines();
+        let reply_lines = vec![String::from("reply")];
+
+        self.exchanges.push(Exchange::new(query_lines, reply_lines));
+        self.cursor.jump(0, 0);
     }
 
     fn insert_char(&mut self, ch: char) {

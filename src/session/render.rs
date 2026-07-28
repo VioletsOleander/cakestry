@@ -1,6 +1,7 @@
-use crate::session::Session;
+use super::Session;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui::style::{Color, Style};
 use std::borrow::Cow;
 use std::cmp;
 
@@ -14,7 +15,7 @@ impl Session {
         self.offset = 0;
         self.view_end = self.view_start + area.height as usize;
 
-        // Render (query, seperator, reply) triplet.
+        // Render (query, seperator, reply, seperator).
         for exchange in &self.exchanges {
             if self.offset >= self.view_end {
                 return;
@@ -24,7 +25,8 @@ impl Session {
                     Query::reserved_width(),
                     area.width as usize,
                 );
-                let widget = Query::new(wrapped_lines);
+                let mut widget = Query::new(wrapped_lines);
+                widget.set_prompt_style(Style::default().fg(Color::Blue));
 
                 let height = self.render_widget(widget, area, buf);
                 self.offset += height;
@@ -52,6 +54,15 @@ impl Session {
                 let height = self.render_widget(widget, area, buf);
                 self.offset += height;
             }
+
+            if self.offset >= self.view_end {
+                return;
+            } else {
+                let widget = Separator::default();
+
+                let height = self.render_widget(widget, area, buf);
+                self.offset += height;
+            }
         }
 
         // Render user input area.
@@ -63,7 +74,8 @@ impl Session {
                 Query::reserved_width(),
                 area.width as usize,
             );
-            let widget = Query::new(wrapped_lines);
+            let mut widget = Query::new(wrapped_lines);
+            widget.set_prompt_style(Style::default().fg(Color::Green));
 
             let height = self.render_widget(widget, area, buf);
             self.offset += height;
