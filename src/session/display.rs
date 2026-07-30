@@ -13,9 +13,10 @@ use widget::{Query, Reply, ReservedWidth, Separator, Widget};
 impl Session {
     /// Display the session on the given `frame`.
     ///
-    /// A `Session` will virtually render all exchanges on a virtual document with larger length than the viewport of
-    /// the `frame`. The actually rendered area in the y coordinate of the document is `[self.view_start,
-    /// self.view_end)`, where `self.view_start` is affected by mouse scroll.
+    /// A `Session` will virtually render all exchanges on a virtual document with larger length
+    /// than the viewport of the `frame`. The actually rendered area in the y coordinate of the
+    /// document is `[self.view_start, self.view_end)`, where `self.view_start` is affected by mouse
+    /// scroll.
     pub fn display(&mut self, frame: &mut Frame) {
         let area = frame.area();
         let buf = frame.buffer_mut();
@@ -108,8 +109,9 @@ impl Session {
 
     /// Render `widget` into the visible view in `session_buf`, and return the height of `widget`.
     ///
-    /// Because the borrow checker does not allow `render_widget` mutabaly inside the `&self.exchanges` loop, we have to
-    /// left the responsibiliy for increasing `self.offset` for that loop instead of doing it inside this method.
+    /// Because the borrow checker does not allow `render_widget` mutabaly inside the
+    /// `&self.exchanges` loop, we have to left the responsibiliy for increasing `self.offset` for
+    /// that loop instead of doing it inside this method.
     fn render_widget(
         &self,
         mut widget: impl Widget,
