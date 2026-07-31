@@ -74,12 +74,14 @@ impl Session {
     fn remove_char(&mut self) {
         let (line_idx, byte_idx) = self.cursor.position();
 
+        // If current char is in the last, delete the next '\n' char,
+        // which is equivalent to joining with the next line.
         if byte_idx == self.user_input[line_idx].len() {
-            if line_idx == self.user_input.len() {
+            // If current is in the last, do nothing.
+            if line_idx == self.user_input.len() - 1 {
                 return;
             }
 
-            // Delete current line's '\n' char, equivalent to joining current line with next line.
             let next_line = self.user_input.remove_line(line_idx + 1);
             self.user_input.insert_str(line_idx, byte_idx, &next_line);
             return;
@@ -91,12 +93,14 @@ impl Session {
     fn remove_prev_char(&mut self) {
         let (line_idx, mut byte_idx) = self.cursor.position();
 
+        // If current char is in the first, delete the previous '\n' char,
+        // which is equivalent to joining with the previous line.
         if byte_idx == 0 {
+            // If current line is in the first, do nothing.
             if line_idx == 0 {
                 return;
             }
 
-            // Delete previous line's '\n' char, equivalent to joining previous line with current line.
             let prev_line_idx = line_idx - 1;
             let prev_line_len = self.user_input[prev_line_idx].len();
             let curr_line = self.user_input.remove_line(line_idx);
