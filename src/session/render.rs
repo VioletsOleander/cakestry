@@ -1,39 +1,53 @@
-use super::Session;
+use std::cmp;
+
 use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
-use std::borrow::Cow;
-use std::cmp;
+
+use super::Session;
 
 mod widget;
+mod wrap;
 
 use widget::{Query, Reply, ReservedWidth, Separator, Widget};
+use wrap::wrap_line;
 
 impl Session {
-    /// Display the session on the given `frame`.
+    /// Render the session onto the given `frame`.
     ///
     /// A `Session` will virtually render all exchanges on a virtual document with larger length
     /// than the viewport of the `frame`. The actually rendered area in the y coordinate of the
     /// document is `[self.view_start, self.view_end)`, where `self.view_start` is affected by mouse
     /// scroll.
-    pub fn display(&mut self, frame: &mut Frame) {
+    pub fn render(&mut self, frame: &mut Frame) {
+        self.offset = 0;
+        self.view_end = self.view_start + frame.area().height as usize;
+
+        self.render_exchanges(frame);
+        // self.render_input_area(frame);
+    }
+
+    fn render_exchanges(&mut self, frame: &mut Frame) {
         let area = frame.area();
         let buf = frame.buffer_mut();
 
-        self.offset = 0;
-        self.view_end = self.view_start + area.height as usize;
-
         // Render (query, seperator, reply, seperator).
         for exchange in &self.exchanges {
+            // TODO: make this long part looks better, the performance is ok now.
             if self.offset >= self.view_end {
                 return;
             } else {
-                let wrapped_lines = self.wrap_lines(
-                    exchange.query_lines(),
-                    Query::reserved_width(),
-                    area.width as usize,
-                );
+                let text_width = (area.width as usize)
+                    .checked_sub(Query::reserved_width())
+                    .expect("Reserved width should be less than area width");
+
+                let wrapped_lines = exchange
+                    .query_lines()
+                    .iter()
+                    .flat_map(|line| wrap_line(line, text_width))
+                    .collect();
+
                 let mut widget = Query::new(wrapped_lines);
                 widget.set_prompt_style(Style::default().fg(Color::Blue));
 
@@ -53,11 +67,16 @@ impl Session {
             if self.offset >= self.view_end {
                 return;
             } else {
-                let wrapped_lines = self.wrap_lines(
-                    exchange.reply_lines(),
-                    Reply::reserved_width(),
-                    area.width as usize,
-                );
+                let text_width = (area.width as usize)
+                    .checked_sub(Reply::reserved_width())
+                    .expect("Reserved width should be less than area width");
+
+                let wrapped_lines = exchange
+                    .reply_lines()
+                    .iter()
+                    .flat_map(|line| wrap_line(line, text_width))
+                    .collect();
+
                 let widget = Reply::new(wrapped_lines);
 
                 let height = self.render_widget(widget, area, buf);
@@ -73,41 +92,55 @@ impl Session {
                 self.offset += height;
             }
         }
-
-        // Render user input area.
-        if self.offset >= self.view_end {
-            return;
-        } else {
-            let wrapped_lines = self.wrap_lines(
-                self.user_input.lines(),
-                Query::reserved_width(),
-                area.width as usize,
-            );
-            let mut widget = Query::new(wrapped_lines);
-            widget.set_prompt_style(Style::default().fg(Color::Green));
-
-            let height = self.render_widget(widget, area, buf);
-            self.offset += height;
-        }
     }
 
-    fn wrap_lines<'a>(
-        &'a self,
-        lines: &'a [String],
-        reserved_with: usize,
-        area_width: usize,
-    ) -> Vec<Cow<'a, str>> {
-        let text_width = area_width
-            .checked_sub(reserved_with)
-            .expect("Reserved width should be less than area width");
+    // fn render_input_area(&mut self, frame: &mut Frame) {
+    //     if self.offset >= self.view_end {
+    //         return;
+    //     }
+    //
+    //     let area = frame.area();
+    //     let buf = frame.buffer_mut();
+    //
+    //     let text_width = (area.width as usize)
+    //         .checked_sub(Query::reserved_width())
+    //         .expect("Reserved width should be less than area width");
+    //
+    //     let wrap_results: Vec<_> = (self.user_input.lines())
+    //         .iter()
+    //         .map(|line| wrap_line(line, text_width))
+    //         .collect();
+    //
+    //     let (line_idx, byte_idx) = self.cursor.position();
+    //
+    //     let mut num_seen_lines = 0;
+    //     for i in 0..line_idx {
+    //         num_seen_lines += wrap_results[i].len();
+    //     }
+    //
+    //     let mut num_seen_bytes = 0;
+    //     for wrapped_line in wrap_results[line_idx] {
+    //         num_seen_bytes += wrapped_line.len();
+    //
+    //         // In this line
+    //         if byte_idx < num_seen_bytes {}
+    //
+    //         // In next line
+    //         if byte_idx >= num_seen_bytes {
+    //             num_seen_lines += 1;
+    //             num_seen_bytes += 1; // Additional newline char
+    //         }
+    //     }
+    //
+    //     // let wrapped_lines = wrap_results.iter().flatten().collect();
+    //     // let mut widget = Query::new(wrapped_lines);
+    //     // widget.set_prompt_style(Style::default().fg(Color::Green));
+    //
+    //     // let height = self.render_widget(widget, area, buf);
+    //     // self.offset += height;
+    // }
 
-        lines
-            .iter()
-            .flat_map(|line| textwrap::wrap(line, text_width))
-            .collect()
-    }
-
-    /// Render `widget` into the visible view in `session_buf`, and return the height of `widget`.
+    /// Render `widget` onto the visible view in `session_buf`, and return the height of `widget`.
     ///
     /// Because the borrow checker does not allow `render_widget` mutabaly inside the
     /// `&self.exchanges` loop, we have to left the responsibiliy for increasing `self.offset` for

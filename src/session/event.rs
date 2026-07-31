@@ -1,6 +1,7 @@
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+
 use super::Session;
 use super::state::Exchange;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
 impl Session {
     /// Handle event and modify internal state correspondingly.

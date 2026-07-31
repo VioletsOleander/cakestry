@@ -1,6 +1,7 @@
 use anyhow::Result;
-use cakestry::App;
 use clap::Parser;
+
+use cakestry::App;
 
 /// AI agent in the command line.
 #[derive(Parser)]

@@ -1,9 +1,9 @@
-use super::{ReservedWidth, Widget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
-use std::borrow::Cow;
+
+use super::{ReservedWidth, Widget};
 
 mod angle;
 mod dot;
@@ -14,7 +14,7 @@ use dot::Dot;
 /// A widget to display wrapped user input text.
 #[derive(Debug)]
 pub struct Query<'a> {
-    wrapped_lines: Vec<Cow<'a, str>>,
+    wrapped_lines: Vec<&'a str>,
     /// Scroll offset in y coordinate
     offset: u16,
     /// Style of the prompt symbol '>'
@@ -23,7 +23,7 @@ pub struct Query<'a> {
 
 impl<'a> Query<'a> {
     /// Create a `Query` from given lines.
-    pub fn new(wrapped_lines: Vec<Cow<'a, str>>) -> Self {
+    pub fn new(wrapped_lines: Vec<&'a str>) -> Self {
         Query {
             wrapped_lines,
             offset: 0,

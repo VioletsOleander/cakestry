@@ -1,7 +1,8 @@
-use super::Widget;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::{Fill, Widget as RatatuiWidget};
+
+use super::Widget;
 
 /// A widget to display an empty line as separator.
 #[derive(Default)]

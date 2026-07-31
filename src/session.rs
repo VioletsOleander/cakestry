@@ -1,5 +1,5 @@
-mod display;
 mod event;
+mod render;
 mod state;
 
 use state::Cursor;

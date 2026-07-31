@@ -1,4 +1,4 @@
-/// Cursor on the screen.
+/// Cursor position on the input lines.
 #[derive(Default)]
 pub struct Cursor {
     /// Horizontal position, byte index

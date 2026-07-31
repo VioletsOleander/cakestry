@@ -1,20 +1,20 @@
-use super::{ReservedWidth, Widget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
-use std::borrow::Cow;
+
+use super::{ReservedWidth, Widget};
 
 /// A widget to display assistant reply.
 #[derive(Debug)]
 pub struct Reply<'a> {
-    wrapped_lines: Vec<Cow<'a, str>>,
+    wrapped_lines: Vec<&'a str>,
     /// Scroll offset in y coordinate
     offset: u16,
 }
 
 impl<'a> Reply<'a> {
     /// Create a `Reply` from given lines.
-    pub fn new(wrapped_lines: Vec<Cow<'a, str>>) -> Self {
+    pub fn new(wrapped_lines: Vec<&'a str>) -> Self {
         Reply {
             wrapped_lines,
             offset: 0,
