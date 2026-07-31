@@ -12,15 +12,16 @@ pub fn wrap_line(line: &str, width: usize) -> Vec<&str> {
 
     for (idx, grapheme) in line.grapheme_indices(true) {
         let grapheme_width = grapheme.width();
-        line_width += grapheme_width;
 
-        if line_width > width {
+        if line_width + grapheme_width > width {
             // Last wrapped line ranges from the start grapheme to last grapheme.
             wrapped_lines.push(&line[start_idx..idx]);
 
             // This wrapped line starts from current grapheme.
             start_idx = idx;
             line_width = grapheme_width;
+        } else {
+            line_width += grapheme_width;
         }
     }
 
