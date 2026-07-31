@@ -25,120 +25,109 @@ impl Session {
         self.view_end = self.view_start + frame.area().height as usize;
 
         self.render_exchanges(frame);
-        // self.render_input_area(frame);
+        self.render_input_area(frame);
     }
 
     fn render_exchanges(&mut self, frame: &mut Frame) {
-        let area = frame.area();
-        let buf = frame.buffer_mut();
-
         // Render (query, seperator, reply, seperator).
         for exchange in &self.exchanges {
             // TODO: make this long part looks better, the performance is ok now.
             if self.offset >= self.view_end {
                 return;
             } else {
-                let text_width = (area.width as usize)
+                let text_width = (frame.area().width as usize)
                     .checked_sub(Query::reserved_width())
                     .expect("Reserved width should be less than area width");
 
-                let wrapped_lines = exchange
-                    .query_lines()
+                let query_lines = exchange.query_lines();
+                let wrapped_lines = query_lines
                     .iter()
                     .flat_map(|line| wrap_line(line, text_width))
                     .collect();
 
-                let mut widget = Query::new(wrapped_lines);
-                widget.set_prompt_style(Style::default().fg(Color::Blue));
+                let mut query = Query::new(wrapped_lines);
+                query.set_prompt_style(Style::default().fg(Color::Blue));
 
-                let height = self.render_widget(widget, area, buf);
-                self.offset += height;
+                self.offset += self.render_widget(query, frame.area(), frame.buffer_mut());
             }
 
             if self.offset >= self.view_end {
                 return;
             } else {
-                let widget = Separator::default();
-
-                let height = self.render_widget(widget, area, buf);
-                self.offset += height;
+                self.offset +=
+                    self.render_widget(Separator::default(), frame.area(), frame.buffer_mut());
             }
 
             if self.offset >= self.view_end {
                 return;
             } else {
-                let text_width = (area.width as usize)
+                let text_width = (frame.area().width as usize)
                     .checked_sub(Reply::reserved_width())
                     .expect("Reserved width should be less than area width");
 
-                let wrapped_lines = exchange
-                    .reply_lines()
+                let reply_lines = exchange.reply_lines();
+                let wrapped_lines = reply_lines
                     .iter()
                     .flat_map(|line| wrap_line(line, text_width))
                     .collect();
 
-                let widget = Reply::new(wrapped_lines);
+                let reply = Reply::new(wrapped_lines);
 
-                let height = self.render_widget(widget, area, buf);
-                self.offset += height;
+                self.offset += self.render_widget(reply, frame.area(), frame.buffer_mut());
             }
 
             if self.offset >= self.view_end {
                 return;
             } else {
-                let widget = Separator::default();
-
-                let height = self.render_widget(widget, area, buf);
-                self.offset += height;
+                self.offset +=
+                    self.render_widget(Separator::default(), frame.area(), frame.buffer_mut());
             }
         }
     }
 
-    // fn render_input_area(&mut self, frame: &mut Frame) {
-    //     if self.offset >= self.view_end {
-    //         return;
-    //     }
-    //
-    //     let area = frame.area();
-    //     let buf = frame.buffer_mut();
-    //
-    //     let text_width = (area.width as usize)
-    //         .checked_sub(Query::reserved_width())
-    //         .expect("Reserved width should be less than area width");
-    //
-    //     let wrap_results: Vec<_> = (self.user_input.lines())
-    //         .iter()
-    //         .map(|line| wrap_line(line, text_width))
-    //         .collect();
-    //
-    //     let (line_idx, byte_idx) = self.cursor.position();
-    //
-    //     let mut num_seen_lines = 0;
-    //     for i in 0..line_idx {
-    //         num_seen_lines += wrap_results[i].len();
-    //     }
-    //
-    //     let mut num_seen_bytes = 0;
-    //     for wrapped_line in wrap_results[line_idx] {
-    //         num_seen_bytes += wrapped_line.len();
-    //
-    //         // In this line
-    //         if byte_idx < num_seen_bytes {}
-    //
-    //         // In next line
-    //         if byte_idx >= num_seen_bytes {
-    //             num_seen_lines += 1;
-    //             num_seen_bytes += 1; // Additional newline char
-    //         }
-    //     }
-    //
-    //     // let wrapped_lines = wrap_results.iter().flatten().collect();
-    //     // let mut widget = Query::new(wrapped_lines);
-    //     // widget.set_prompt_style(Style::default().fg(Color::Green));
-    //
-    //     // let height = self.render_widget(widget, area, buf);
-    //     // self.offset += height;
-    // }
+    fn render_input_area(&mut self, frame: &mut Frame) {
+        if self.offset >= self.view_end {
+            return;
+        }
+
+        let text_width = (frame.area().width as usize)
+            .checked_sub(Query::reserved_width())
+            .expect("Reserved width should be less than area width");
+
+        let input_lines = self.user_input.lines();
+        let wrap_results: Vec<_> = input_lines
+            .iter()
+            .map(|line| wrap_line(line, text_width))
+            .collect();
+
+        // let (line_idx, byte_idx) = self.cursor.position();
+
+        // let mut num_seen_lines = 0;
+        // for i in 0..line_idx {
+        //     num_seen_lines += wrap_results[i].len();
+        // }
+        //
+        // let mut num_seen_bytes = 0;
+        // for wrapped_line in wrap_results[line_idx] {
+        //     num_seen_bytes += wrapped_line.len();
+        //
+        //     // In this line
+        //     if byte_idx < num_seen_bytes {}
+        //
+        //     // In next line
+        //     if byte_idx >= num_seen_bytes {
+        //         num_seen_lines += 1;
+        //         num_seen_bytes += 1; // Additional newline char
+        //     }
+        // }
+
+        // let wrapped_lines = wrap_results.iter().flatten().collect();
+        let mut widget = Query::new(wrapped_lines);
+        widget.set_prompt_style(Style::default().fg(Color::Green));
+
+        let height = self.render_widget(widget, frame.area(), frame.buffer_mut());
+        self.offset += height;
+    }
 
     /// Render `widget` onto the visible view in `session_buf`, and return the height of `widget`.
     ///
