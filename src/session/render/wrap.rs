@@ -5,7 +5,7 @@ use unicode_width::UnicodeWidthStr;
 ///
 /// `width` is supposed to be unicode width, and is required to be positive.
 pub fn wrap_line(line: &str, width: usize) -> Vec<&str> {
-    let mut wrapped_lines = Vec::new();
+    let mut lines = Vec::new();
 
     let mut line_width = 0;
     let mut start_idx = 0;
@@ -14,21 +14,23 @@ pub fn wrap_line(line: &str, width: usize) -> Vec<&str> {
         let grapheme_width = grapheme.width();
 
         if line_width + grapheme_width > width {
-            // Last wrapped line ranges from the start grapheme to last grapheme.
-            wrapped_lines.push(&line[start_idx..idx]);
+            // Last line ranges from the start grapheme to last grapheme.
+            lines.push(&line[start_idx..idx]);
 
-            // This wrapped line starts from current grapheme.
+            // This line starts from current grapheme.
             start_idx = idx;
             line_width = grapheme_width;
+
+            tracing::info!("wrap line")
         } else {
             line_width += grapheme_width;
         }
     }
 
     // Trailing graphemes
-    wrapped_lines.push(&line[start_idx..]);
+    lines.push(&line[start_idx..]);
 
-    wrapped_lines
+    lines
 }
 
 #[cfg(test)]
@@ -40,10 +42,10 @@ mod test {
         let line = "Hello World";
         let width = 11;
 
-        let wrapped_lines = wrap_line(line, width);
+        let lines = wrap_line(line, width);
 
-        assert_eq!(wrapped_lines.len(), 1);
-        assert_eq!(wrapped_lines[0], "Hello World");
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0], "Hello World");
     }
 
     #[test]
@@ -51,11 +53,11 @@ mod test {
         let line = "Hello World";
         let width = 10;
 
-        let wrapped_lines = wrap_line(line, width);
+        let lines = wrap_line(line, width);
 
-        assert_eq!(wrapped_lines.len(), 2);
-        assert_eq!(wrapped_lines[0], "Hello Worl");
-        assert_eq!(wrapped_lines[1], "d");
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0], "Hello Worl");
+        assert_eq!(lines[1], "d");
     }
 
     #[test]
@@ -63,12 +65,12 @@ mod test {
         let line = "Hello World";
         let width = 5;
 
-        let wrapped_lines = wrap_line(line, width);
+        let lines = wrap_line(line, width);
 
-        assert_eq!(wrapped_lines.len(), 3);
-        assert_eq!(wrapped_lines[0], "Hello");
-        assert_eq!(wrapped_lines[1], " Worl");
-        assert_eq!(wrapped_lines[2], "d");
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0], "Hello");
+        assert_eq!(lines[1], " Worl");
+        assert_eq!(lines[2], "d");
     }
 
     #[test]
@@ -76,10 +78,10 @@ mod test {
         let line = "你好 世界";
         let width = 9;
 
-        let wrapped_lines = wrap_line(line, width);
+        let lines = wrap_line(line, width);
 
-        assert_eq!(wrapped_lines.len(), 1);
-        assert_eq!(wrapped_lines[0], "你好 世界");
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0], "你好 世界");
     }
 
     #[test]
@@ -87,11 +89,11 @@ mod test {
         let line = "你好 世界";
         let width = 8;
 
-        let wrapped_lines = wrap_line(line, width);
+        let lines = wrap_line(line, width);
 
-        assert_eq!(wrapped_lines.len(), 2);
-        assert_eq!(wrapped_lines[0], "你好 世");
-        assert_eq!(wrapped_lines[1], "界");
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0], "你好 世");
+        assert_eq!(lines[1], "界");
     }
 
     #[test]
@@ -99,11 +101,11 @@ mod test {
         let line = "你好 世界";
         let width = 4;
 
-        let wrapped_lines = wrap_line(line, width);
+        let lines = wrap_line(line, width);
 
-        assert_eq!(wrapped_lines.len(), 3);
-        assert_eq!(wrapped_lines[0], "你好");
-        assert_eq!(wrapped_lines[1], " 世");
-        assert_eq!(wrapped_lines[2], "界");
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0], "你好");
+        assert_eq!(lines[1], " 世");
+        assert_eq!(lines[2], "界");
     }
 }

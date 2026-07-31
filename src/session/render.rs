@@ -4,6 +4,7 @@ use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
+use unicode_width::UnicodeWidthStr;
 
 use super::Session;
 
@@ -31,7 +32,6 @@ impl Session {
     fn render_exchanges(&mut self, frame: &mut Frame) {
         // Render (query, seperator, reply, seperator).
         for exchange in &self.exchanges {
-            // TODO: make this long part looks better, the performance is ok now.
             if self.offset >= self.view_end {
                 return;
             } else {
@@ -40,12 +40,12 @@ impl Session {
                     .expect("Reserved width should be less than area width");
 
                 let query_lines = exchange.query_lines();
-                let wrapped_lines = query_lines
+                let lines = query_lines
                     .iter()
                     .flat_map(|line| wrap_line(line, text_width))
                     .collect();
 
-                let mut query = Query::new(wrapped_lines);
+                let mut query = Query::new(lines);
                 query.set_prompt_style(Style::default().fg(Color::Blue));
 
                 self.offset += self.render_widget(query, frame.area(), frame.buffer_mut());
@@ -66,12 +66,12 @@ impl Session {
                     .expect("Reserved width should be less than area width");
 
                 let reply_lines = exchange.reply_lines();
-                let wrapped_lines = reply_lines
+                let lines = reply_lines
                     .iter()
                     .flat_map(|line| wrap_line(line, text_width))
                     .collect();
 
-                let reply = Reply::new(wrapped_lines);
+                let reply = Reply::new(lines);
 
                 self.offset += self.render_widget(reply, frame.area(), frame.buffer_mut());
             }
@@ -100,33 +100,52 @@ impl Session {
             .map(|line| wrap_line(line, text_width))
             .collect();
 
-        // let (line_idx, byte_idx) = self.cursor.position();
+        // Render cursor
+        let (line_idx, byte_idx) = self.cursor.position();
 
-        // let mut num_seen_lines = 0;
-        // for i in 0..line_idx {
-        //     num_seen_lines += wrap_results[i].len();
-        // }
-        //
-        // let mut num_seen_bytes = 0;
-        // for wrapped_line in wrap_results[line_idx] {
-        //     num_seen_bytes += wrapped_line.len();
-        //
-        //     // In this line
-        //     if byte_idx < num_seen_bytes {}
-        //
-        //     // In next line
-        //     if byte_idx >= num_seen_bytes {
-        //         num_seen_lines += 1;
-        //         num_seen_bytes += 1; // Additional newline char
-        //     }
-        // }
+        let mut num_seen_lines = 0;
+        for lines in wrap_results.iter().take(line_idx) {
+            num_seen_lines += lines.len();
+        }
 
-        // let wrapped_lines = wrap_results.iter().flatten().collect();
-        let mut widget = Query::new(wrapped_lines);
-        widget.set_prompt_style(Style::default().fg(Color::Green));
+        let mut num_seen_bytes = 0;
+        for line in &wrap_results[line_idx] {
+            if byte_idx > num_seen_bytes + line.len() {
+                num_seen_lines += 1;
+                num_seen_bytes += line.len();
+            } else {
+                let visual_byte_idx = byte_idx - num_seen_bytes;
+                let prefix_width = line[..visual_byte_idx].width();
 
-        let height = self.render_widget(widget, frame.area(), frame.buffer_mut());
-        self.offset += height;
+                // workaround for showing cursor in next line when current line is full
+                // the beam must be showd after the char, so an additional line is necessary
+                // needs refactor, since the prefix prompt still not shown, because there is no acutal data
+                // maybe need an additional widget for input area, which has its own logic.
+                if (prefix_width + Query::reserved_width()) as u16 == frame.area().width {
+                    let visual_line_idx = num_seen_lines + 1;
+                    let prefix_width = 0;
+
+                    frame.set_cursor_position((
+                        (prefix_width + Query::reserved_width()) as u16,
+                        (self.offset + visual_line_idx) as u16,
+                    ));
+                } else {
+                    let visual_line_idx = num_seen_lines;
+
+                    frame.set_cursor_position((
+                        (prefix_width + Query::reserved_width()) as u16,
+                        (self.offset + visual_line_idx) as u16,
+                    ));
+                }
+            }
+        }
+
+        // Render lines
+        let lines = wrap_results.into_iter().flatten().collect();
+        let mut query = Query::new(lines);
+        query.set_prompt_style(Style::default().fg(Color::Green));
+
+        self.offset += self.render_widget(query, frame.area(), frame.buffer_mut());
     }
 
     /// Render `widget` onto the visible view in `session_buf`, and return the height of `widget`.

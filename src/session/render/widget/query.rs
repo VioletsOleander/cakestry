@@ -14,7 +14,7 @@ use dot::Dot;
 /// A widget to display wrapped user input text.
 #[derive(Debug)]
 pub struct Query<'a> {
-    wrapped_lines: Vec<&'a str>,
+    lines: Vec<&'a str>,
     /// Scroll offset in y coordinate
     offset: u16,
     /// Style of the prompt symbol '>'
@@ -23,9 +23,9 @@ pub struct Query<'a> {
 
 impl<'a> Query<'a> {
     /// Create a `Query` from given lines.
-    pub fn new(wrapped_lines: Vec<&'a str>) -> Self {
+    pub fn new(lines: Vec<&'a str>) -> Self {
         Query {
-            wrapped_lines,
+            lines,
             offset: 0,
             prompt_style: Style::default(),
         }
@@ -58,13 +58,13 @@ impl<'a> Widget for Query<'a> {
             }
         }
 
-        Paragraph::new(self.wrapped_lines.as_slice())
+        Paragraph::new(self.lines.as_slice())
             .scroll((self.offset, 0))
             .render(paragraph_area, buf);
     }
 
     fn height(&self) -> usize {
-        self.wrapped_lines.len()
+        self.lines.len()
     }
 
     fn scroll(&mut self, offset: u16) {

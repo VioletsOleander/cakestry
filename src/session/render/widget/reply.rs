@@ -7,18 +7,15 @@ use super::{ReservedWidth, Widget};
 /// A widget to display assistant reply.
 #[derive(Debug)]
 pub struct Reply<'a> {
-    wrapped_lines: Vec<&'a str>,
+    lines: Vec<&'a str>,
     /// Scroll offset in y coordinate
     offset: u16,
 }
 
 impl<'a> Reply<'a> {
     /// Create a `Reply` from given lines.
-    pub fn new(wrapped_lines: Vec<&'a str>) -> Self {
-        Reply {
-            wrapped_lines,
-            offset: 0,
-        }
+    pub fn new(lines: Vec<&'a str>) -> Self {
+        Reply { lines, offset: 0 }
     }
 }
 
@@ -27,13 +24,13 @@ impl<'a> Widget for Reply<'a> {
     where
         Self: Sized,
     {
-        Paragraph::new(self.wrapped_lines.as_slice())
+        Paragraph::new(self.lines.as_slice())
             .scroll((self.offset, 0))
             .render(area, buf);
     }
 
     fn height(&self) -> usize {
-        self.wrapped_lines.len()
+        self.lines.len()
     }
 
     fn scroll(&mut self, offset: u16) {
