@@ -17,9 +17,7 @@ impl App {
         let mut terminal = terminal::init();
 
         loop {
-            terminal.draw(|frame| {
-                self.session.render(frame);
-            })?;
+            terminal.draw(|frame| self.session.render(frame))?;
 
             match crossterm::event::read()? {
                 Event::Key(key) if key.code == KeyCode::Esc => break,

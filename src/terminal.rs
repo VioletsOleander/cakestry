@@ -17,7 +17,7 @@ pub fn init() -> DefaultTerminal {
 /// Restore the terminal to its original state.
 pub fn restore() {
     if let Err(err) = try_restore() {
-        // There's not much we can do if restoring the terminal fails, so we just print the error
+        // There's not much we can do if restoring the terminal fails, so we just print the error.
         std::eprintln!("Failed to restore terminal: {err}");
     }
 }
@@ -31,8 +31,8 @@ fn try_init() -> std::io::Result<DefaultTerminal> {
 }
 
 fn try_restore() -> std::io::Result<()> {
-    // disabling raw mode first is important as it has more side effects than leaving the alternate
-    // screen buffer
+    // Disabling raw mode first is important as it has more side effects than leaving the alternate
+    // screen buffer.
     disable_raw_mode()?;
     execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
     Ok(())

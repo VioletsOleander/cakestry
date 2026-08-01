@@ -3,7 +3,7 @@ use clap::Parser;
 
 use cakestry::App;
 
-/// AI agent in the command line.
+/// AI agent in the command line
 #[derive(Parser)]
 struct Args {}
 
