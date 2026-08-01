@@ -1,3 +1,5 @@
+//! Widgets for rendering the session's interface.
+
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
@@ -7,8 +9,9 @@ mod textarea;
 
 pub use exchange::{Query, Reply};
 pub use symbol::Separator;
+pub use textarea::TextArea;
 
-/// A type that can be drawn on the document and the viewport in the session.
+/// A type that can be drawn on the document and the viewport in a session.
 pub trait Widget {
     /// Render itself to the specified area and buffer.
     fn render(&self, area: Rect, buf: &mut Buffer)

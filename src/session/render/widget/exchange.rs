@@ -29,7 +29,7 @@ impl<'a> Query<'a> {
     ///
     /// Since widget is used as a render command, pass all the command needs (`lines`, `width`) to
     /// make a render as arguments here is reasonable.
-    pub fn new(lines: Vec<&'a str>, width: usize) -> Self {
+    pub fn new(lines: &'a [String], width: usize) -> Self {
         // prefix width = span width + space width = 2
         let text_width = width
             .checked_sub(2)
@@ -96,7 +96,7 @@ impl<'a> Reply<'a> {
     /// Create a `Reply` from given `lines` and `width`.
     ///
     /// `width` is used to appropriately wrap `lines`.
-    pub fn new(lines: Vec<&'a str>, width: usize) -> Self {
+    pub fn new(lines: &'a [String], width: usize) -> Self {
         let wrapped_lines = lines
             .iter()
             .flat_map(|line| wrap_line(line, width))

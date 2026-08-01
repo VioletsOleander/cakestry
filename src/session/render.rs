@@ -3,7 +3,6 @@ use std::cmp;
 use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Style};
 use unicode_width::UnicodeWidthStr;
 
 use super::Session;
@@ -11,112 +10,114 @@ use super::Session;
 mod textwrap;
 mod widget;
 
-use widget::{Query, Reply, Separator, Widget};
+use textwrap::wrap_line;
+use widget::{Query, Reply, Separator, TextArea, Widget};
 
 impl Session {
     /// Render the session onto the given `frame`.
     ///
-    /// A `Session` will virtually render all exchanges on a virtual document with larger length
-    /// than the viewport of the `frame`. The actually rendered area in the y coordinate of the
-    /// document is `[self.view_start, self.view_end)`, where `self.view_start` is affected by mouse
-    /// scroll.
+    /// A [`Session`] will render all stored exchanges and a textarea on a virtual document which
+    /// has larger length than the viewport of `frame`. The actually rendered area in the y
+    /// coordinate of the document is `[self.view_start, self.view_end)`, where `self.view_start` is
+    /// affected by mouse scroll.
     pub fn render(&mut self, frame: &mut Frame) {
         self.offset = 0;
         self.view_end = self.view_start + frame.area().height as usize;
 
         self.render_exchanges(frame);
-        self.render_input_area(frame);
+        self.render_textarea(frame);
     }
 
+    /// Render exchanges, each in the form of (query, separator, reply, separator).
     fn render_exchanges(&mut self, frame: &mut Frame) {
         for exchange in &self.exchanges {
-            // query
             self.offset += self.render_widget(
                 Query::new(exchange.query_lines(), frame.area().width as usize),
                 frame.area(),
                 frame.buffer_mut(),
             );
 
-            // separator
             self.offset +=
                 self.render_widget(Separator::default(), frame.area(), frame.buffer_mut());
 
-            // reply
             self.offset += self.render_widget(
                 Reply::new(exchange.reply_lines(), frame.area().width as usize),
                 frame.area(),
                 frame.buffer_mut(),
             );
 
-            // separator
             self.offset +=
                 self.render_widget(Separator::default(), frame.area(), frame.buffer_mut());
         }
     }
 
-    // compute cursor requires wrapp lines, and render cursor requires access to the full frame
-    // therefore only the session can compute cursor and render cursor, therefore the session must do
-    // line wrapping for the textarea widget, unlike query and reply.
-    fn render_input_area(&mut self, frame: &mut Frame) {
+    /// Render the user input area and the screen cursor.
+    ///
+    /// Render screen cursor requires access to the full `frame`, and compute screen cursor position
+    /// requires wrapping text lines. Because only [`Session`] has access to the full `frame`,
+    /// [`Session`] has to take the responsibiliy for wrapping text lines for [`TextArea`], unlike
+    /// [`Query`] and [`Reply`].
+    fn render_textarea(&mut self, frame: &mut Frame) {
+        // Wrap lines.
         let text_width = (frame.area().width as usize)
-            .checked_sub(Query::reserved_width())
-            .expect("Reserved width should be less than area width");
-
-        let input_lines = self.user_input.lines();
-        let wrap_results: Vec<_> = input_lines
+            .checked_sub(TextArea::prefix_width())
+            .unwrap_or_else(|| {
+                panic!(
+                    "Given width for TextArea should be larger than {}",
+                    TextArea::prefix_width()
+                )
+            });
+        let mut wrap_results: Vec<_> = (self.user_input.lines())
             .iter()
             .map(|line| wrap_line(line, text_width))
             .collect();
 
-        // Render cursor
+        // Render cursor.
         let (line_idx, byte_idx) = self.cursor.position();
 
-        let mut num_seen_lines = 0;
-        for lines in wrap_results.iter().take(line_idx) {
-            num_seen_lines += lines.len();
-        }
-
+        let mut num_seen_lines: usize = wrap_results.iter().take(line_idx).map(|v| v.len()).sum();
         let mut num_seen_bytes = 0;
+
         for line in &wrap_results[line_idx] {
+            // Desired byte's start index is not in current wrapped line.
             if byte_idx > num_seen_bytes + line.len() {
                 num_seen_lines += 1;
                 num_seen_bytes += line.len();
-            } else {
-                let visual_byte_idx = byte_idx - num_seen_bytes;
-                let prefix_width = line[..visual_byte_idx].width();
-
-                // workaround for showing cursor in next line when current line is full
-                // the beam must be showd after the char, so an additional line is necessary
-                // needs refactor, since the prefix prompt still not shown, because there is no acutal data
-                // maybe need an additional widget for input area, which has its own logic.
-                if (prefix_width + Query::reserved_width()) as u16 == frame.area().width {
-                    let visual_line_idx = num_seen_lines + 1;
-                    let prefix_width = 0;
-
-                    frame.set_cursor_position((
-                        (prefix_width + Query::reserved_width()) as u16,
-                        (self.offset + visual_line_idx) as u16,
-                    ));
-                } else {
-                    let visual_line_idx = num_seen_lines;
-
-                    frame.set_cursor_position((
-                        (prefix_width + Query::reserved_width()) as u16,
-                        (self.offset + visual_line_idx) as u16,
-                    ));
-                }
+                continue;
             }
+
+            // Desired byte's start index is in current wrapped line.
+            let prefix_width =
+                TextArea::prefix_width() + line[..(byte_idx - num_seen_bytes)].width();
+
+            // If desired byte's start index is in current wrapped line's end, wrap to next line's
+            // first text starting position.
+            if prefix_width as u16 == frame.area().width {
+                frame.set_cursor_position((
+                    (TextArea::prefix_width() as u16),
+                    (self.offset + num_seen_lines + 1) as u16,
+                ));
+
+                // To ensure the next line has a prompt, an additionall empty line is required.
+                wrap_results.push(vec![""]);
+                break;
+            }
+
+            frame.set_cursor_position((
+                (prefix_width) as u16,
+                (self.offset + num_seen_lines) as u16,
+            ));
         }
 
-        // Render lines
-        let lines = wrap_results.into_iter().flatten().collect();
-        let mut query = Query::new(lines);
-        query.set_prompt_style(Style::default().fg(Color::Green));
-
-        self.offset += self.render_widget(query, frame.area(), frame.buffer_mut());
+        // Render lines.
+        self.offset += self.render_widget(
+            TextArea::new(wrap_results.into_iter().flatten().collect()),
+            frame.area(),
+            frame.buffer_mut(),
+        );
     }
 
-    /// Render `widget` onto the visible view in `session_buf`, and return the height of `widget`.
+    /// Render `widget` on the visible view in `session_buf`, and return the height of `widget`.
     ///
     /// Because the borrow checker does not allow `render_widget` mutabaly inside the
     /// `&self.exchanges` loop, we have to left the responsibiliy for increasing `self.offset` for
