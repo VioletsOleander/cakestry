@@ -8,8 +8,8 @@ use unicode_width::UnicodeWidthStr;
 
 use super::Session;
 
+mod textwrap;
 mod widget;
-mod wrap;
 
 use widget::{Query, Reply, Separator, Widget};
 
@@ -54,6 +54,9 @@ impl Session {
         }
     }
 
+    // compute cursor requires wrapp lines, and render cursor requires access to the full frame
+    // therefore only the session can compute cursor and render cursor, therefore the session must do
+    // line wrapping for the textarea widget, unlike query and reply.
     fn render_input_area(&mut self, frame: &mut Frame) {
         let text_width = (frame.area().width as usize)
             .checked_sub(Query::reserved_width())

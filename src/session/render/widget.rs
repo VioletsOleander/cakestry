@@ -1,13 +1,12 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
-pub mod query;
-pub mod reply;
-pub mod separator;
+mod exchange;
+mod symbol;
+mod textarea;
 
-pub use query::Query;
-pub use reply::Reply;
-pub use separator::Separator;
+pub use exchange::{Query, Reply};
+pub use symbol::Separator;
 
 /// A type that can be drawn on the document and the viewport in the session.
 pub trait Widget {
