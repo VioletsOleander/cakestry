@@ -22,8 +22,3 @@ pub trait Widget {
     /// Set the scroll offset of itself.
     fn scroll(&mut self, offset: u16);
 }
-
-pub trait ReservedWidth {
-    /// Return the reserved width for non-text area in itself.
-    fn reserved_width() -> usize;
-}

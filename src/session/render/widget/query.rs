@@ -1,9 +1,10 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
+use ratatui::style::{Color, Style};
 use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
 
-use super::{ReservedWidth, Widget};
+use super::Widget;
+use crate::session::render::wrap::wrap_line;
 
 mod angle;
 mod dot;
@@ -14,26 +15,37 @@ use dot::Dot;
 /// A widget to display wrapped user input text.
 #[derive(Debug)]
 pub struct Query<'a> {
+    /// Lines of text wrapped by the specified width.
     lines: Vec<&'a str>,
-    /// Scroll offset in y coordinate
+    /// Scroll offset in y coordinate.
     offset: u16,
-    /// Style of the prompt symbol '>'
+    /// Style of the prompt symbol '>' and '.'.
     prompt_style: Style,
 }
 
 impl<'a> Query<'a> {
-    /// Create a `Query` from given lines.
-    pub fn new(lines: Vec<&'a str>) -> Self {
-        Query {
-            lines,
-            offset: 0,
-            prompt_style: Style::default(),
-        }
-    }
+    /// Create a `Query` from given `lines` and `width`.
+    ///
+    /// `width` is used to appropriately wrap `lines`.
+    ///
+    /// Since widget is used as a render command, pass all the command needs (`lines`, `width`) to
+    /// make a render as arguments here is reasonable.
+    pub fn new(lines: Vec<&'a str>, width: usize) -> Self {
+        // prefix width = span width + space width = 2
+        let text_width = width
+            .checked_sub(2)
+            .expect("Given width for Query should be larger than 2");
 
-    /// Set the style of the prompt sign.
-    pub fn set_prompt_style(&mut self, style: Style) {
-        self.prompt_style = style;
+        let wrapped_lines = lines
+            .iter()
+            .flat_map(|line| wrap_line(line, text_width))
+            .collect();
+
+        Query {
+            lines: wrapped_lines,
+            offset: 0,
+            prompt_style: Style::default().fg(Color::Blue),
+        }
     }
 }
 
@@ -50,9 +62,9 @@ impl<'a> Widget for Query<'a> {
         for i in 0..spans_area.height {
             let span_area = Rect::new(spans_area.x, spans_area.y + i, spans_area.width, 1);
 
+            // If there is scroll, the first line prompt sign should be skipped.
             if i == 0 && self.offset == 0 {
-                let prompt = Angle::new(self.prompt_style);
-                prompt.render(span_area, buf);
+                Angle::new(self.prompt_style).render(span_area, buf);
             } else {
                 Dot.render(span_area, buf);
             }
@@ -69,12 +81,5 @@ impl<'a> Widget for Query<'a> {
 
     fn scroll(&mut self, offset: u16) {
         self.offset = offset;
-    }
-}
-
-impl<'a> ReservedWidth for Query<'a> {
-    fn reserved_width() -> usize {
-        // 1 width span + 1 width space
-        2
     }
 }

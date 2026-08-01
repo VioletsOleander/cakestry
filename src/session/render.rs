@@ -11,8 +11,7 @@ use super::Session;
 mod widget;
 mod wrap;
 
-use widget::{Query, Reply, ReservedWidth, Separator, Widget};
-use wrap::wrap_line;
+use widget::{Query, Reply, Separator, Widget};
 
 impl Session {
     /// Render the session onto the given `frame`.
@@ -30,66 +29,32 @@ impl Session {
     }
 
     fn render_exchanges(&mut self, frame: &mut Frame) {
-        // Render (query, seperator, reply, seperator).
         for exchange in &self.exchanges {
-            if self.offset >= self.view_end {
-                return;
-            } else {
-                let text_width = (frame.area().width as usize)
-                    .checked_sub(Query::reserved_width())
-                    .expect("Reserved width should be less than area width");
+            // query
+            self.offset += self.render_widget(
+                Query::new(exchange.query_lines(), frame.area().width as usize),
+                frame.area(),
+                frame.buffer_mut(),
+            );
 
-                let query_lines = exchange.query_lines();
-                let lines = query_lines
-                    .iter()
-                    .flat_map(|line| wrap_line(line, text_width))
-                    .collect();
+            // separator
+            self.offset +=
+                self.render_widget(Separator::default(), frame.area(), frame.buffer_mut());
 
-                let mut query = Query::new(lines);
-                query.set_prompt_style(Style::default().fg(Color::Blue));
+            // reply
+            self.offset += self.render_widget(
+                Reply::new(exchange.reply_lines(), frame.area().width as usize),
+                frame.area(),
+                frame.buffer_mut(),
+            );
 
-                self.offset += self.render_widget(query, frame.area(), frame.buffer_mut());
-            }
-
-            if self.offset >= self.view_end {
-                return;
-            } else {
-                self.offset +=
-                    self.render_widget(Separator::default(), frame.area(), frame.buffer_mut());
-            }
-
-            if self.offset >= self.view_end {
-                return;
-            } else {
-                let text_width = (frame.area().width as usize)
-                    .checked_sub(Reply::reserved_width())
-                    .expect("Reserved width should be less than area width");
-
-                let reply_lines = exchange.reply_lines();
-                let lines = reply_lines
-                    .iter()
-                    .flat_map(|line| wrap_line(line, text_width))
-                    .collect();
-
-                let reply = Reply::new(lines);
-
-                self.offset += self.render_widget(reply, frame.area(), frame.buffer_mut());
-            }
-
-            if self.offset >= self.view_end {
-                return;
-            } else {
-                self.offset +=
-                    self.render_widget(Separator::default(), frame.area(), frame.buffer_mut());
-            }
+            // separator
+            self.offset +=
+                self.render_widget(Separator::default(), frame.area(), frame.buffer_mut());
         }
     }
 
     fn render_input_area(&mut self, frame: &mut Frame) {
-        if self.offset >= self.view_end {
-            return;
-        }
-
         let text_width = (frame.area().width as usize)
             .checked_sub(Query::reserved_width())
             .expect("Reserved width should be less than area width");

@@ -20,8 +20,6 @@ pub fn wrap_line(line: &str, width: usize) -> Vec<&str> {
             // This line starts from current grapheme.
             start_idx = idx;
             line_width = grapheme_width;
-
-            tracing::info!("wrap line")
         } else {
             line_width += grapheme_width;
         }
