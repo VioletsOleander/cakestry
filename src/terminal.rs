@@ -1,5 +1,11 @@
-//! Adapted from ratatui/src/init.rs
+//! Utility to initialize and deinitialize an [`DefaultTerminal`] instance.
+//!
+//! This file is adapted from `ratatui/src/init.rs`
 
+use std::io::{Result, stdout};
+use std::panic;
+
+use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::execute;
 use crossterm::terminal::{
@@ -7,7 +13,6 @@ use crossterm::terminal::{
 };
 use ratatui::backend::CrosstermBackend;
 use ratatui::{DefaultTerminal, Terminal};
-use std::io::stdout;
 
 /// Initialize and return a `DefaultTerminal` instance.
 pub fn init() -> DefaultTerminal {
@@ -18,29 +23,42 @@ pub fn init() -> DefaultTerminal {
 pub fn restore() {
     if let Err(err) = try_restore() {
         // There's not much we can do if restoring the terminal fails, so we just print the error.
-        std::eprintln!("Failed to restore terminal: {err}");
+        eprintln!("Failed to restore terminal: {err}");
     }
 }
 
-fn try_init() -> std::io::Result<DefaultTerminal> {
+fn try_init() -> Result<DefaultTerminal> {
     set_panic_hook();
     enable_raw_mode()?;
-    execute!(stdout(), EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout());
-    Terminal::new(backend)
+
+    execute!(
+        stdout(),
+        EnterAlternateScreen,
+        EnableMouseCapture,
+        SetCursorStyle::SteadyBar
+    )?;
+
+    Terminal::new(CrosstermBackend::new(stdout()))
 }
 
-fn try_restore() -> std::io::Result<()> {
+fn try_restore() -> Result<()> {
     // Disabling raw mode first is important as it has more side effects than leaving the alternate
     // screen buffer.
     disable_raw_mode()?;
-    execute!(stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
+
+    execute!(
+        stdout(),
+        LeaveAlternateScreen,
+        DisableMouseCapture,
+        SetCursorStyle::DefaultUserShape
+    )?;
+
     Ok(())
 }
 
 fn set_panic_hook() {
-    let hook = std::panic::take_hook();
-    std::panic::set_hook(std::boxed::Box::new(move |info| {
+    let hook = panic::take_hook();
+    panic::set_hook(Box::new(move |info| {
         restore();
         hook(info);
     }));
