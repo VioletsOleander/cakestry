@@ -17,6 +17,14 @@ impl UserInput {
         &self.lines
     }
 
+    /// Return the char indexed by `line_idx` and `byte_idx`.
+    pub fn char(&self, line_idx: usize, byte_idx: usize) -> char {
+        self.lines[line_idx][byte_idx..]
+            .chars()
+            .next()
+            .expect("Given byte_idx should be a valid start index of a character.")
+    }
+
     /// Return true if the input is empty.
     pub fn is_empty(&self) -> bool {
         self.lines.len() == 1 && self.lines[0].len() == 0
