@@ -9,6 +9,8 @@ impl Session {
             KeyModifiers::CONTROL => match key.code {
                 // This also matches Ctrl-Enter
                 KeyCode::Char('j') => self.break_line(),
+                KeyCode::Char('w') => self.clear_to_word_begin(),
+                KeyCode::Char('u') => self.clear_to_line_begin(),
                 _ => (),
             },
             KeyModifiers::SHIFT => match key.code {
@@ -32,7 +34,60 @@ impl Session {
             _ => (),
         }
     }
+}
 
+impl Session {
+    fn break_line(&mut self) {
+        let (line_idx, byte_idx) = self.cursor.position();
+
+        let next_line_idx = line_idx + 1;
+        let next_line = String::from(&self.user_input[line_idx][byte_idx..]);
+
+        self.user_input.truncate_line(line_idx, byte_idx);
+        self.user_input.insert_line(next_line_idx, next_line);
+        self.cursor.jump(next_line_idx, 0);
+    }
+
+    fn clear_to_word_begin(&mut self) {
+        let (line_idx, byte_idx) = self.cursor.position();
+
+        // The clear range starts from the next char of the whitespace char,
+        // or starts from the line begining.
+        let bytes = self.user_input[line_idx].as_bytes();
+        let mut start_idx = byte_idx;
+
+        // Firstly find left nearest non-whitespace char, equivalent to find last word's end.
+        while start_idx > 0 {
+            start_idx -= 1;
+
+            if !bytes[start_idx].is_ascii_whitespace() {
+                break;
+            }
+        }
+
+        // Then find the left nearest whitespace char, equivalent to find last word's begin.
+        while start_idx > 0 {
+            start_idx -= 1;
+
+            if bytes[start_idx].is_ascii_whitespace() {
+                start_idx += 1;
+                break;
+            }
+        }
+
+        self.user_input.drain_line(line_idx, start_idx..byte_idx);
+        self.cursor.jump(line_idx, start_idx);
+    }
+
+    fn clear_to_line_begin(&mut self) {
+        let (line_idx, byte_idx) = self.cursor.position();
+
+        self.user_input.drain_line(line_idx, 0..byte_idx);
+        self.cursor.jump(line_idx, 0);
+    }
+}
+
+impl Session {
     fn request(&mut self) {
         let query_lines = self.user_input.take_lines();
         let reply_lines = vec![String::from("reply")];
@@ -102,17 +157,6 @@ impl Session {
 
         let ch = self.user_input.remove_char(line_idx, byte_idx);
         self.cursor.move_left(ch);
-    }
-
-    fn break_line(&mut self) {
-        let (line_idx, byte_idx) = self.cursor.position();
-
-        let next_line_idx = line_idx + 1;
-        let next_line = String::from(&self.user_input[line_idx][byte_idx..]);
-
-        self.user_input.truncate_line(line_idx, byte_idx);
-        self.user_input.insert_line(next_line_idx, next_line);
-        self.cursor.jump(next_line_idx, 0);
     }
 
     fn move_cursor_left(&mut self) {

@@ -1,5 +1,5 @@
 use std::mem;
-use std::ops::Index;
+use std::ops::{Index, Range};
 
 /// Lines of text edited by the user.
 pub struct UserInput {
@@ -37,6 +37,30 @@ impl UserInput {
         mem::replace(&mut self.lines, vec![String::new()])
     }
 
+    /// Remove the character at `byte_idx`, in the line index by `line_idx`
+    ///
+    /// The removed character is returned.
+    pub fn remove_char(&mut self, line_idx: usize, byte_idx: usize) -> char {
+        self.lines[line_idx].remove(byte_idx)
+    }
+
+    /// Remove the content specified by `range` in line index by `line_idx`.
+    pub fn drain_line(&mut self, line_idx: usize, range: Range<usize>) {
+        self.lines[line_idx].drain(range);
+    }
+
+    /// Truncate the line indexed by `line_idx` at `byte_idx`.
+    pub fn truncate_line(&mut self, line_idx: usize, byte_idx: usize) {
+        self.lines[line_idx].truncate(byte_idx);
+    }
+
+    /// Remove the line indexed by `line_idx`.
+    ///
+    /// The removed line is returned.
+    pub fn remove_line(&mut self, line_idx: usize) -> String {
+        self.lines.remove(line_idx)
+    }
+
     /// Insert `ch` into the line indexed by `line_idx`, at `byte_idx`.
     pub fn insert_char(&mut self, line_idx: usize, byte_idx: usize, ch: char) {
         self.lines[line_idx].insert(byte_idx, ch);
@@ -50,25 +74,6 @@ impl UserInput {
     /// Insert `line` at `line_idx`.
     pub fn insert_line(&mut self, line_idx: usize, line: String) {
         self.lines.insert(line_idx, line);
-    }
-
-    /// Remove the character at `byte_idx`, in the line index by `line_idx`
-    ///
-    /// The removed character is returned.
-    pub fn remove_char(&mut self, line_idx: usize, byte_idx: usize) -> char {
-        self.lines[line_idx].remove(byte_idx)
-    }
-
-    /// Truncate the line indexed by `line_idx` at `byte_idx`.
-    pub fn truncate_line(&mut self, line_idx: usize, byte_idx: usize) {
-        self.lines[line_idx].truncate(byte_idx);
-    }
-
-    /// Remove the line indexed by `line_idx`.
-    ///
-    /// The removed line is returned.
-    pub fn remove_line(&mut self, line_idx: usize) -> String {
-        self.lines.remove(line_idx)
     }
 }
 
