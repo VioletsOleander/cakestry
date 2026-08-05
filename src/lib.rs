@@ -1,6 +1,8 @@
 use anyhow::Result;
 use crossterm::event::{Event, KeyCode};
 
+mod client;
+mod config;
 mod session;
 mod terminal;
 
@@ -14,6 +16,7 @@ impl App {
     pub fn run(&mut self) -> Result<()> {
         init_subscriber();
 
+        let config = config::load_config();
         let mut terminal = terminal::init();
 
         loop {
