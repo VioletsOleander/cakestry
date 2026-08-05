@@ -22,7 +22,7 @@ impl UserInput {
         self.lines[line_idx][byte_idx..]
             .chars()
             .next()
-            .expect("Given byte_idx should be a valid start index of a character.")
+            .expect("Given byte_idx should be a valid start index of a character")
     }
 
     /// Return true if the input is empty.

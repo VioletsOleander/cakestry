@@ -16,7 +16,7 @@ impl App {
     pub fn run(&mut self) -> Result<()> {
         init_subscriber();
 
-        let config = config::load_config();
+        let config = config::Config::from_file(".cakestry/config.toml");
         let mut terminal = terminal::init();
 
         loop {
