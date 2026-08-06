@@ -1,26 +1,46 @@
 use anyhow::Result;
 use crossterm::event::{Event, KeyCode};
+use ratatui::DefaultTerminal;
 
 mod client;
 mod config;
 mod session;
 mod terminal;
 
-/// Session manager, dispatch and delegate work to current session.
-#[derive(Default)]
+use client::Client;
+use config::Config;
+use session::Session;
+
 pub struct App {
-    session: Box<session::Session>,
+    config: Config,
+    terminal: DefaultTerminal,
+    session: Box<Session>,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        let config = Config::from_file(".cakestry/config.toml");
+        let terminal = terminal::init();
+
+        let client = Client::new(
+            config
+                .get_provider(config.default_provider())
+                .expect("The default provider should be a valid name."),
+        );
+        let session = Session::new(client);
+
+        App {
+            config,
+            terminal,
+            session: Box::new(session),
+        }
+    }
 }
 
 impl App {
     pub fn run(&mut self) -> Result<()> {
-        init_subscriber();
-
-        let config = config::Config::from_file(".cakestry/config.toml");
-        let mut terminal = terminal::init();
-
         loop {
-            terminal.draw(|frame| self.session.render(frame))?;
+            self.terminal.draw(|frame| self.session.render(frame))?;
 
             match crossterm::event::read()? {
                 Event::Key(key) if key.code == KeyCode::Esc => break,
@@ -28,18 +48,12 @@ impl App {
             };
         }
 
-        terminal::restore();
+        self.cleanup();
 
         Ok(())
     }
-}
 
-/// Initialize the default global tracing subscriber.
-fn init_subscriber() {
-    let appender = tracing_appender::rolling::never(".", "cakestry.log");
-    let subscriber_builder = tracing_subscriber::fmt()
-        .with_ansi(false)
-        .with_writer(appender);
-
-    subscriber_builder.init();
+    fn cleanup(&mut self) {
+        terminal::restore();
+    }
 }

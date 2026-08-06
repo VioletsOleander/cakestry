@@ -27,7 +27,7 @@ impl Session {
                     if self.user_input.is_empty() {
                         return;
                     }
-                    self.request();
+                    self.send_request();
                 }
                 _ => (),
             },
@@ -88,7 +88,7 @@ impl Session {
 }
 
 impl Session {
-    fn request(&mut self) {
+    async fn send_request(&mut self) {
         let query_lines = self.user_input.take_lines();
         let reply_lines = vec![String::from("reply")];
 
