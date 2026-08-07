@@ -36,4 +36,8 @@ impl Client {
 
         Ok(response.output_text())
     }
+
+    pub fn model(&self) -> &str {
+        &self.model
+    }
 }

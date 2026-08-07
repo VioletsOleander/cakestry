@@ -20,38 +20,37 @@ use textarea::TextArea;
 
 impl SessionRenderer {
     /// Render the exchanges and textarea of `session`.
-    pub(super) fn render_document(&mut self, session: &Session, frame: &mut Frame) {
-        self.render_exchanges(session.exchanges(), frame);
-        self.render_textarea(session.user_input(), session.cursor(), frame);
+    pub(super) fn render_document(&mut self, session: &Session, area: Rect, frame: &mut Frame) {
+        self.document_offset = 0;
+        self.document_view = (session.scroll(), session.scroll() + area.height as usize);
+
+        self.render_exchanges(session.exchanges(), area, frame.buffer_mut());
+        self.render_textarea(session.user_input(), session.cursor(), area, frame);
     }
 
     /// Render exchanges on the document, each in the form of (query, separator, reply, separator).
-    fn render_exchanges(&mut self, exchanges: &[Exchange], frame: &mut Frame) {
+    fn render_exchanges(&mut self, exchanges: &[Exchange], area: Rect, buf: &mut Buffer) {
         for exchange in exchanges {
-            self.offset += self.render_widget(
-                Query::new(exchange.query(), frame.area().width as usize),
-                frame.area(),
-                frame.buffer_mut(),
-            );
+            self.document_offset +=
+                self.render_widget(Query::new(exchange.query(), area.width as usize), area, buf);
+            self.document_offset += self.render_widget(Separator::default(), area, buf);
 
-            self.offset +=
-                self.render_widget(Separator::default(), frame.area(), frame.buffer_mut());
-
-            self.offset += self.render_widget(
-                Reply::new(exchange.reply(), frame.area().width as usize),
-                frame.area(),
-                frame.buffer_mut(),
-            );
-
-            self.offset +=
-                self.render_widget(Separator::default(), frame.area(), frame.buffer_mut());
+            self.document_offset +=
+                self.render_widget(Reply::new(exchange.reply(), area.width as usize), area, buf);
+            self.document_offset += self.render_widget(Separator::default(), area, buf);
         }
     }
 
     /// Render the user input area and the screen cursor.
-    fn render_textarea(&mut self, user_input: &UserInput, cursor: &Cursor, frame: &mut Frame) {
+    fn render_textarea(
+        &mut self,
+        user_input: &UserInput,
+        cursor: &Cursor,
+        area: Rect,
+        frame: &mut Frame,
+    ) {
         // Wrap lines.
-        let text_width = (frame.area().width as usize)
+        let text_width = (area.width as usize)
             .checked_sub(TextArea::prefix_width())
             .unwrap_or_else(|| {
                 panic!(
@@ -84,10 +83,10 @@ impl SessionRenderer {
 
             // If desired byte's start index is in current wrapped line's end, wrap to next line's
             // first text starting position.
-            if prefix_width as u16 == frame.area().width {
+            if prefix_width as u16 == area.width {
                 frame.set_cursor_position((
                     (TextArea::prefix_width() as u16),
-                    (self.offset + num_seen_lines + 1) as u16,
+                    (self.document_offset + num_seen_lines + 1) as u16,
                 ));
 
                 // To ensure the next line has a prompt, an additionall empty line is required.
@@ -97,19 +96,19 @@ impl SessionRenderer {
 
             frame.set_cursor_position((
                 (prefix_width) as u16,
-                (self.offset + num_seen_lines) as u16,
+                (self.document_offset + num_seen_lines) as u16,
             ));
         }
 
         // Render lines.
-        self.offset += self.render_widget(
+        self.document_offset += self.render_widget(
             TextArea::new(wrap_results.into_iter().flatten().collect()),
-            frame.area(),
+            area,
             frame.buffer_mut(),
         );
     }
 
-    /// Render `widget` on the visible view in `session_buf`, and return the height of `widget`.
+    /// Render `widget` on the visible view in `document_area`, and return the height of `widget`.
     ///
     /// Because the borrow checker does not allow `render_widget` mutabaly inside the
     /// `&self.exchanges` loop, we have to left the responsibiliy for increasing `self.offset` for
@@ -117,13 +116,13 @@ impl SessionRenderer {
     fn render_widget(
         &self,
         mut widget: impl Widget,
-        session_area: Rect,
-        session_buf: &mut Buffer,
+        document_area: Rect,
+        document_buf: &mut Buffer,
     ) -> usize {
-        let (view_start, view_end) = self.view;
+        let (view_start, view_end) = self.document_view;
 
         let widget_height = widget.height();
-        let widget_start = self.offset;
+        let widget_start = self.document_offset;
         let widget_end = widget_start + widget_height;
 
         // Widget lies above the view
@@ -140,14 +139,14 @@ impl SessionRenderer {
 
         let skip = (visible_start - widget_start) as u16;
         let area = Rect::new(
-            session_area.x,
-            session_area.y + offset as u16,
-            session_area.width,
+            document_area.x,
+            document_area.y + offset as u16,
+            document_area.width,
             visible_height as u16,
         );
 
         widget.scroll(skip);
-        widget.render(area, session_buf);
+        widget.render(area, document_buf);
         widget_height
     }
 }

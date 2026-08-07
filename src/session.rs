@@ -12,7 +12,6 @@ pub struct Session {
     user_input: UserInput,
     cursor: Cursor,
     exchanges: Vec<Exchange>,
-    /// Scroll offset in y coordinate.
     scroll: usize,
     client: Client,
 }
@@ -42,5 +41,9 @@ impl Session {
 
     pub fn scroll(&self) -> usize {
         self.scroll
+    }
+
+    pub fn client(&self) -> &Client {
+        &self.client
     }
 }
