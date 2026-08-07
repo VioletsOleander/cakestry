@@ -26,13 +26,9 @@ impl Config {
 
     /// Search for a provider by the given `name`, if found, return it.
     pub fn get_provider(&self, name: &str) -> Option<&Provider> {
-        for provider in &self.providers {
-            if provider.name == name {
-                return Some(provider);
-            }
-        }
-
-        None
+        self.providers
+            .iter()
+            .find(|&provider| provider.name == name)
     }
 
     pub fn default_provider(&self) -> &str {
