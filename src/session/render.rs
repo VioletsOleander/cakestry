@@ -32,7 +32,7 @@ impl Session {
     fn render_exchanges(&mut self, frame: &mut Frame) {
         for exchange in &self.exchanges {
             self.offset += self.render_widget(
-                Query::new(exchange.query_lines(), frame.area().width as usize),
+                Query::new(exchange.query(), frame.area().width as usize),
                 frame.area(),
                 frame.buffer_mut(),
             );
@@ -41,7 +41,7 @@ impl Session {
                 self.render_widget(Separator::default(), frame.area(), frame.buffer_mut());
 
             self.offset += self.render_widget(
-                Reply::new(exchange.reply_lines(), frame.area().width as usize),
+                Reply::new(exchange.reply(), frame.area().width as usize),
                 frame.area(),
                 frame.buffer_mut(),
             );

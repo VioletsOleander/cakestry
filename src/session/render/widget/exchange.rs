@@ -23,20 +23,20 @@ pub struct Query<'a> {
 }
 
 impl<'a> Query<'a> {
-    /// Create a `Query` from given `lines` and `width`.
+    /// Create a `Query` from given `content` and `width`.
     ///
     /// `width` is used to appropriately wrap `lines`.
     ///
-    /// Since widget is used as a render command, pass all the command needs (`lines`, `width`) to
+    /// Since widget is used as a render command, pass all the command needs (`content`, `width`) to
     /// make a render as arguments here is reasonable.
-    pub fn new(lines: &'a [String], width: usize) -> Self {
+    pub fn new(content: &'a str, width: usize) -> Self {
         // prefix width = span width + space width = 2
         let text_width = width
             .checked_sub(2)
             .expect("Given width for Query should be larger than 2");
 
-        let wrapped_lines = lines
-            .iter()
+        let wrapped_lines = content
+            .lines()
             .flat_map(|line| wrap_line(line, text_width))
             .collect();
 
@@ -93,12 +93,12 @@ pub struct Reply<'a> {
 }
 
 impl<'a> Reply<'a> {
-    /// Create a `Reply` from given `lines` and `width`.
+    /// Create a `Reply` from given `content` and `width`.
     ///
-    /// `width` is used to appropriately wrap `lines`.
-    pub fn new(lines: &'a [String], width: usize) -> Self {
-        let wrapped_lines = lines
-            .iter()
+    /// `width` is used to appropriately wrap `content`.
+    pub fn new(content: &'a str, width: usize) -> Self {
+        let wrapped_lines = content
+            .lines()
             .flat_map(|line| wrap_line(line, width))
             .collect();
 
