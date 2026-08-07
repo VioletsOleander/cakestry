@@ -5,32 +5,29 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use unicode_width::UnicodeWidthStr;
 
-use super::Session;
+use super::SessionRenderer;
+use crate::session::Session;
+use crate::session::state::{Cursor, Exchange, UserInput};
 
+mod exchange;
+mod symbol;
+mod textarea;
 mod textwrap;
-mod widget;
 
-use textwrap::wrap_line;
-use widget::{Query, Reply, Separator, TextArea, Widget};
+use exchange::{Query, Reply};
+use symbol::Separator;
+use textarea::TextArea;
 
-impl Session {
-    /// Render the session onto the given `frame`.
-    ///
-    /// A [`Session`] will render all stored exchanges and a textarea on a virtual document which
-    /// has larger length than the viewport of `frame`. The actually rendered area in the y
-    /// coordinate of the document is `[self.view_start, self.view_end)`, where `self.view_start` is
-    /// affected by mouse scroll.
-    pub fn render(&mut self, frame: &mut Frame) {
-        self.offset = 0;
-        self.view_end = self.view_start + frame.area().height as usize;
-
-        self.render_exchanges(frame);
-        self.render_textarea(frame);
+impl SessionRenderer {
+    /// Render the exchanges and textarea of `session`.
+    pub(super) fn render_document(&mut self, session: &Session, frame: &mut Frame) {
+        self.render_exchanges(session.exchanges(), frame);
+        self.render_textarea(session.user_input(), session.cursor(), frame);
     }
 
-    /// Render exchanges, each in the form of (query, separator, reply, separator).
-    fn render_exchanges(&mut self, frame: &mut Frame) {
-        for exchange in &self.exchanges {
+    /// Render exchanges on the document, each in the form of (query, separator, reply, separator).
+    fn render_exchanges(&mut self, exchanges: &[Exchange], frame: &mut Frame) {
+        for exchange in exchanges {
             self.offset += self.render_widget(
                 Query::new(exchange.query(), frame.area().width as usize),
                 frame.area(),
@@ -52,12 +49,7 @@ impl Session {
     }
 
     /// Render the user input area and the screen cursor.
-    ///
-    /// Render screen cursor requires access to the full `frame`, and compute screen cursor position
-    /// requires wrapping text lines. Because only [`Session`] has access to the full `frame`,
-    /// [`Session`] has to take the responsibiliy for wrapping text lines for [`TextArea`], unlike
-    /// [`Query`] and [`Reply`].
-    fn render_textarea(&mut self, frame: &mut Frame) {
+    fn render_textarea(&mut self, user_input: &UserInput, cursor: &Cursor, frame: &mut Frame) {
         // Wrap lines.
         let text_width = (frame.area().width as usize)
             .checked_sub(TextArea::prefix_width())
@@ -67,13 +59,13 @@ impl Session {
                     TextArea::prefix_width()
                 )
             });
-        let mut wrap_results: Vec<_> = (self.user_input.lines())
+        let mut wrap_results: Vec<_> = (user_input.lines())
             .iter()
-            .map(|line| wrap_line(line, text_width))
+            .map(|line| textwrap::wrap_line(line, text_width))
             .collect();
 
         // Render cursor.
-        let (line_idx, byte_idx) = self.cursor.position();
+        let (line_idx, byte_idx) = cursor.position();
 
         let mut num_seen_lines: usize = wrap_results.iter().take(line_idx).map(|v| v.len()).sum();
         let mut num_seen_bytes = 0;
@@ -128,20 +120,22 @@ impl Session {
         session_area: Rect,
         session_buf: &mut Buffer,
     ) -> usize {
+        let (view_start, view_end) = self.view;
+
         let widget_height = widget.height();
         let widget_start = self.offset;
         let widget_end = widget_start + widget_height;
 
         // Widget lies above the view
-        if widget_end <= self.view_start {
+        if widget_end <= view_start {
             return widget_height;
         }
 
         // Widget overlaps with view
-        let visible_start = cmp::max(self.view_start, widget_start);
-        let visible_end = cmp::min(self.view_end, widget_end);
+        let visible_start = cmp::max(view_start, widget_start);
+        let visible_end = cmp::min(view_end, widget_end);
 
-        let offset = visible_start - self.view_start;
+        let offset = visible_start - view_start;
         let visible_height = visible_end - visible_start;
 
         let skip = (visible_start - widget_start) as u16;
@@ -156,4 +150,18 @@ impl Session {
         widget.render(area, session_buf);
         widget_height
     }
+}
+
+/// A type that can be drawn on the document in a session.
+trait Widget {
+    /// Render itself to the specified area and buffer.
+    fn render(&self, area: Rect, buf: &mut Buffer)
+    where
+        Self: Sized;
+
+    /// Return the height of itself.
+    fn height(&self) -> usize;
+
+    /// Set the scroll offset of itself.
+    fn scroll(&mut self, offset: u16);
 }

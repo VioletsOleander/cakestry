@@ -4,11 +4,13 @@ use ratatui::DefaultTerminal;
 
 mod client;
 mod config;
+mod render;
 mod session;
 mod terminal;
 
 use client::Client;
 use config::Config;
+use render::SessionRenderer;
 use session::Session;
 
 pub struct App {
@@ -39,8 +41,11 @@ impl Default for App {
 
 impl App {
     pub fn run(&mut self) -> Result<()> {
+        let mut session_render = SessionRenderer::default();
+
         loop {
-            self.terminal.draw(|frame| self.session.render(frame))?;
+            self.terminal
+                .draw(|frame| session_render.render(&self.session, frame))?;
 
             match crossterm::event::read()? {
                 Event::Key(key) if key.code == KeyCode::Esc => break,

@@ -9,7 +9,7 @@ use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
 
 use super::Widget;
 use super::symbol::{Angle, Dot};
-use crate::session::render::textwrap::wrap_line;
+use super::textwrap::wrap_line;
 
 /// A widget to display wrapped user input text.
 #[derive(Debug)]

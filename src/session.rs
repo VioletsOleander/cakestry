@@ -1,25 +1,19 @@
 use super::client::Client;
 
 mod event;
-mod render;
-mod state;
+pub mod state;
 
 use state::Cursor;
 use state::Exchange;
 use state::UserInput;
 
+// Data structure stores and modifies its data, not responsible for rendering itself.
 pub struct Session {
     user_input: UserInput,
     cursor: Cursor,
     exchanges: Vec<Exchange>,
-
-    /// The view's start index in y coordinate in the document
-    view_start: usize,
-    /// The view's end index in y coordinate in the document
-    view_end: usize,
-    /// Offset in y coordinate in the document
-    offset: usize,
-
+    /// Scroll offset in y coordinate.
+    scroll: usize,
     client: Client,
 }
 
@@ -29,10 +23,24 @@ impl Session {
             user_input: UserInput::default(),
             cursor: Cursor::default(),
             exchanges: Vec::new(),
-            view_start: 0,
-            view_end: 0,
-            offset: 0,
+            scroll: 0,
             client,
         }
+    }
+
+    pub fn user_input(&self) -> &UserInput {
+        &self.user_input
+    }
+
+    pub fn cursor(&self) -> &Cursor {
+        &self.cursor
+    }
+
+    pub fn exchanges(&self) -> &Vec<Exchange> {
+        &self.exchanges
+    }
+
+    pub fn scroll(&self) -> usize {
+        self.scroll
     }
 }
