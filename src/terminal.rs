@@ -1,4 +1,5 @@
 use std::io;
+use std::panic;
 
 use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
@@ -20,6 +21,8 @@ pub struct Terminal {
 
 impl Default for Terminal {
     fn default() -> Self {
+        set_panic_hook();
+
         crossterm::terminal::enable_raw_mode()
             .expect("The terminal should have the capability to enable raw mode.");
 
@@ -28,7 +31,8 @@ impl Default for Terminal {
             EnterAlternateScreen,
             EnableMouseCapture,
             SetCursorStyle::SteadyBar
-        );
+        )
+        .expect("The terminal should have the capability to execute given commands.");
 
         Self {
             default_terminal: DefaultTerminal::new(CrosstermBackend::new(io::stdout())).expect(
@@ -40,25 +44,41 @@ impl Default for Terminal {
 
 impl Drop for Terminal {
     fn drop(&mut self) {
-        // Disabling raw mode first is important as it has more side effects than leaving the
-        // alternate screen buffer.
-        crossterm::terminal::disable_raw_mode()
-            .expect("The terminal should have the capability to disable raw mode.");
-
-        crossterm::execute!(
-            io::stdout(),
-            LeaveAlternateScreen,
-            DisableMouseCapture,
-            SetCursorStyle::DefaultUserShape
-        );
+        restore_terminal();
     }
+}
+
+// If panic hook is not set, the panic message will be written to the alternate buffer, not visible
+// to the main buffer.
+fn set_panic_hook() {
+    let hook = panic::take_hook();
+    panic::set_hook(Box::new(move |info| {
+        restore_terminal();
+        hook(info);
+    }));
+}
+
+fn restore_terminal() {
+    // Disabling raw mode first is important as it has more side effects than leaving the alternate
+    // screen buffer.
+    crossterm::terminal::disable_raw_mode()
+        .expect("The terminal should have the capability to disable raw mode.");
+
+    crossterm::execute!(
+        io::stdout(),
+        LeaveAlternateScreen,
+        DisableMouseCapture,
+        SetCursorStyle::DefaultUserShape
+    )
+    .expect("The terminal should have the capability to execute given commands.");
 }
 
 impl Terminal {
     /// Draw the user interface in the terminal.
     pub fn draw(&mut self, session: &Session, client: &Client) {
         self.default_terminal
-            .draw(|frame| TerminalRenderer::default().render(session, client, frame));
+            .draw(|frame| TerminalRenderer::default().render(session, client, frame))
+            .expect("The terminal should be able to render itself.");
     }
 
     /// Read [`Event`] from user interaction and return it.

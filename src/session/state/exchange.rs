@@ -16,4 +16,8 @@ impl Exchange {
     pub fn reply(&self) -> &str {
         &self.reply
     }
+
+    pub fn set_reply(&mut self, reply: String) {
+        self.reply = reply;
+    }
 }

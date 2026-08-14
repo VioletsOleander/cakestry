@@ -241,6 +241,7 @@ dependencies = [
  "crossterm",
  "ratatui",
  "serde",
+ "tokio",
  "toml",
  "tracing",
  "tracing-appender",
