@@ -1,64 +1,62 @@
-use anyhow::Result;
-use crossterm::event::{Event, KeyCode};
-use ratatui::DefaultTerminal;
+use crossterm::event::{Event, KeyCode, KeyModifiers};
 
 mod client;
 mod config;
-mod render;
 mod session;
 mod terminal;
 
 use client::Client;
 use config::Config;
-use render::SessionRenderer;
 use session::Session;
+use terminal::Terminal;
 
 pub struct App {
     config: Config,
-    terminal: DefaultTerminal,
-    session: Box<Session>,
+    client: Client,
+    session: Session,
+    terminal: Terminal,
 }
 
 impl Default for App {
     fn default() -> Self {
         let config = Config::from_file(".cakestry/config.toml");
-        let terminal = terminal::init();
-
         let client = Client::new(
             config
                 .get_provider(config.default_provider())
-                .expect("The default provider should be a valid name."),
+                .expect("The default_provider should be a valid provider's name."),
         );
-        let session = Session::new(client);
 
         App {
             config,
-            terminal,
-            session: Box::new(session),
+            client,
+            session: Session::default(),
+            terminal: Terminal::default(),
         }
     }
 }
 
 impl App {
-    pub fn run(&mut self) -> Result<()> {
-        let mut session_render = SessionRenderer::default();
-
+    pub fn run(&mut self) {
         loop {
-            self.terminal
-                .draw(|frame| session_render.render(&self.session, frame))?;
+            self.terminal.draw(&self.session, &self.client);
 
-            match crossterm::event::read()? {
-                Event::Key(key) if key.code == KeyCode::Esc => break,
-                event => self.session.handle_event(event),
+            match self.terminal.read_event() {
+                Event::Key(key) => match key.code {
+                    KeyCode::Esc => {
+                        break;
+                    }
+                    KeyCode::Enter if key.modifiers == KeyModifiers::NONE => {
+                        self.session.handle_key(key);
+                    }
+                    _ => {
+                        self.session.handle_key(key);
+                    }
+                },
+                Event::Mouse(mouse) => {
+                    self.session.handle_mouse(mouse);
+                }
+                _ => (),
             };
         }
-
-        self.cleanup();
-
-        Ok(())
-    }
-
-    fn cleanup(&mut self) {
-        terminal::restore();
     }
 }

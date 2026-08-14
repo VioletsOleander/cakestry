@@ -5,7 +5,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use unicode_width::UnicodeWidthStr;
 
-use super::SessionRenderer;
+use super::TerminalRenderer;
 use crate::session::Session;
 use crate::session::state::{Cursor, Exchange, UserInput};
 
@@ -18,7 +18,7 @@ use exchange::{Query, Reply};
 use symbol::Separator;
 use textarea::TextArea;
 
-impl SessionRenderer {
+impl TerminalRenderer {
     /// Render the exchanges and textarea of `session`.
     pub(super) fn render_document(&mut self, session: &Session, area: Rect, frame: &mut Frame) {
         self.document_offset = 0;

@@ -1,4 +1,3 @@
-use anyhow::Result;
 use clap::Parser;
 
 use cakestry::App;
@@ -7,7 +6,7 @@ use cakestry::App;
 #[derive(Parser)]
 struct Args {}
 
-fn main() -> Result<()> {
+fn main() {
     // Initialize the default global tracing subscriber.
     let appender = tracing_appender::rolling::never(".", "cakestry.log");
     let subscriber_builder = tracing_subscriber::fmt()
@@ -19,5 +18,5 @@ fn main() -> Result<()> {
     let _ = Args::parse();
     let mut app = App::default();
 
-    app.run()
+    app.run();
 }

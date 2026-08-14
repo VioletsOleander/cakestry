@@ -1,65 +1,90 @@
-//! Utility to initialize and deinitialize an [`DefaultTerminal`] instance.
-//!
-//! This file is adapted from `ratatui/src/init.rs`
-
-use std::io::{Result, stdout};
-use std::panic;
+use std::io;
 
 use crossterm::cursor::SetCursorStyle;
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
-use crossterm::execute;
-use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
+use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use ratatui::backend::CrosstermBackend;
-use ratatui::{DefaultTerminal, Terminal};
+use ratatui::layout::{Constraint, Layout};
+use ratatui::{DefaultTerminal, Frame};
 
-/// Initialize and return a `DefaultTerminal` instance.
-pub fn init() -> DefaultTerminal {
-    try_init().expect("failed to initialize terminal")
+use super::client::Client;
+use super::session::Session;
+
+mod document;
+mod statusline;
+
+/// Wrapper of [`DefaultTerminal`].
+pub struct Terminal {
+    default_terminal: DefaultTerminal,
 }
 
-/// Restore the terminal to its original state.
-pub fn restore() {
-    if let Err(err) = try_restore() {
-        // There's not much we can do if restoring the terminal fails, so we just print the error.
-        eprintln!("Failed to restore terminal: {err}");
+impl Default for Terminal {
+    fn default() -> Self {
+        crossterm::terminal::enable_raw_mode()
+            .expect("The terminal should have the capability to enable raw mode.");
+
+        crossterm::execute!(
+            io::stdout(),
+            EnterAlternateScreen,
+            EnableMouseCapture,
+            SetCursorStyle::SteadyBar
+        );
+
+        Self {
+            default_terminal: DefaultTerminal::new(CrosstermBackend::new(io::stdout())).expect(
+                "The terminal should have the capability to Initialize itself with crossbackend.",
+            ),
+        }
     }
 }
 
-fn try_init() -> Result<DefaultTerminal> {
-    set_panic_hook();
-    enable_raw_mode()?;
+impl Drop for Terminal {
+    fn drop(&mut self) {
+        // Disabling raw mode first is important as it has more side effects than leaving the
+        // alternate screen buffer.
+        crossterm::terminal::disable_raw_mode()
+            .expect("The terminal should have the capability to disable raw mode.");
 
-    execute!(
-        stdout(),
-        EnterAlternateScreen,
-        EnableMouseCapture,
-        SetCursorStyle::SteadyBar
-    )?;
-
-    Terminal::new(CrosstermBackend::new(stdout()))
+        crossterm::execute!(
+            io::stdout(),
+            LeaveAlternateScreen,
+            DisableMouseCapture,
+            SetCursorStyle::DefaultUserShape
+        );
+    }
 }
 
-fn try_restore() -> Result<()> {
-    // Disabling raw mode first is important as it has more side effects than leaving the alternate
-    // screen buffer.
-    disable_raw_mode()?;
+impl Terminal {
+    /// Draw the user interface in the terminal.
+    pub fn draw(&mut self, session: &Session, client: &Client) {
+        self.default_terminal
+            .draw(|frame| TerminalRenderer::default().render(session, client, frame));
+    }
 
-    execute!(
-        stdout(),
-        LeaveAlternateScreen,
-        DisableMouseCapture,
-        SetCursorStyle::DefaultUserShape
-    )?;
-
-    Ok(())
+    /// Read [`Event`] from user interaction and return it.
+    pub fn read_event(&self) -> Event {
+        crossterm::event::read()
+            .expect("The terminal should have the capability to read events from crossterm.")
+    }
 }
 
-fn set_panic_hook() {
-    let hook = panic::take_hook();
-    panic::set_hook(Box::new(move |info| {
-        restore();
-        hook(info);
-    }));
+#[derive(Default)]
+struct TerminalRenderer {
+    document_offset: usize,
+    document_view: (usize, usize),
+}
+
+impl TerminalRenderer {
+    /// Render the visibal part of the document and a statusline on the given `frame`.
+    ///
+    /// Exchanges and textarea of `session` will be renderd on a virtual document, which has larger
+    /// length than the viewport of `frame`. The actually rendered area starts from `session`'s
+    /// scroll offest.
+    pub fn render(&mut self, session: &Session, client: &Client, frame: &mut Frame) {
+        let [document_area, statusline_area] =
+            Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(frame.area());
+
+        self.render_document(session, document_area, frame);
+        self.render_statusline(client, statusline_area, frame.buffer_mut());
+    }
 }
