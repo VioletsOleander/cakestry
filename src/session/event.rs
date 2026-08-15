@@ -58,7 +58,7 @@ impl Session {
         let (line_idx, byte_idx) = self.cursor.position();
 
         // The clear range starts from the next char of the whitespace char,
-        // or starts from the line begining.
+        // or starts from the line beginning.
         let bytes = self.user_input[line_idx].as_bytes();
         let mut start_idx = byte_idx;
 
@@ -146,7 +146,7 @@ impl Session {
         // Find previous char's starting byte index.
         let bytes = self.user_input[line_idx].as_bytes();
         loop {
-            // The UTF-8 contiuation bytes all has a form of 0b10xx_xxxx.
+            // The UTF-8 continuation bytes all has a form of 0b10xx_xxxx.
             // The number of bytes to go back is at most 3 by the design of UTF-8.
             byte_idx -= 1;
             if (bytes[byte_idx] & 0b1100_0000) != 0b1000_0000 {
@@ -169,7 +169,7 @@ impl Session {
         // Find previous char's starting byte index.
         let bytes = self.user_input[line_idx].as_bytes();
         loop {
-            // The UTF-8 contiuation bytes all has a form of 0b10xx_xxxx.
+            // The UTF-8 continuation bytes all has a form of 0b10xx_xxxx.
             // The number of bytes to go back is at most 3 by the design of UTF-8.
             byte_idx -= 1;
             if (bytes[byte_idx] & 0b1100_0000) != 0b1000_0000 {

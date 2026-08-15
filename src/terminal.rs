@@ -48,8 +48,11 @@ impl Drop for Terminal {
     }
 }
 
-// If panic hook is not set, the panic message will be written to the alternate buffer, not visible
-// to the main buffer.
+/// Set panic hook to restore the terminal before write panic info to stderr.
+///
+///
+/// If panic hook is not set, the panic message will be written to the alternate buffer,
+/// consequently not visible to the main buffer.
 fn set_panic_hook() {
     let hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
@@ -95,11 +98,11 @@ struct TerminalRenderer {
 }
 
 impl TerminalRenderer {
-    /// Render the visibal part of the document and a statusline on the given `frame`.
+    /// Render the visible part of the document and a status line on the given `frame`.
     ///
-    /// Exchanges and textarea of `session` will be renderd on a virtual document, which has larger
+    /// Exchanges and textarea of `session` will be rendered on a virtual document, which has larger
     /// length than the viewport of `frame`. The actually rendered area starts from `session`'s
-    /// scroll offest.
+    /// scroll offset.
     pub fn render(&mut self, session: &Session, client: &Client, frame: &mut Frame) {
         let [document_area, statusline_area] =
             Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(frame.area());

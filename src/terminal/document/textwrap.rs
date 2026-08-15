@@ -3,7 +3,7 @@ use unicode_width::UnicodeWidthStr;
 
 /// Wrap `line` into possibly multiple lines according to `width`.
 ///
-/// `width` is supposed to be unicode width, and is required to be positive.
+/// `width` is supposed to be Unicode width, and is required to be positive.
 pub fn wrap_line(line: &str, width: usize) -> Vec<&str> {
     let mut lines = Vec::new();
 

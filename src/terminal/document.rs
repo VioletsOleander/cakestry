@@ -89,7 +89,7 @@ impl TerminalRenderer {
                     (self.document_offset + num_seen_lines + 1) as u16,
                 ));
 
-                // To ensure the next line has a prompt, an additionall empty line is required.
+                // To ensure the next line has a prompt, an additional empty line is required.
                 wrap_results.push(vec![""]);
                 break;
             }
@@ -110,8 +110,8 @@ impl TerminalRenderer {
 
     /// Render `widget` on the visible view in `document_area`, and return the height of `widget`.
     ///
-    /// Because the borrow checker does not allow `render_widget` mutabaly inside the
-    /// `&self.exchanges` loop, we have to left the responsibiliy for increasing `self.offset` for
+    /// Because the borrow checker does not allow `render_widget` mutably inside the
+    /// `&self.exchanges` loop, we have to left the responsibility for increasing `self.offset` for
     /// that loop instead of doing it inside this method.
     fn render_widget(
         &self,

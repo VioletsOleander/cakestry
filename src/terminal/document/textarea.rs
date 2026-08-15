@@ -12,7 +12,7 @@ use super::symbol::{Angle, Dot};
 
 /// A widget to display wrapped user input text.
 ///
-/// Different from [`super::Query`], `TextArea` delegates the responsiblity of line wrapping to the
+/// Different from [`super::Query`], `TextArea` delegates the responsibility of line wrapping to the
 /// session, and itself is only responsible for rendering those wrapped lines.
 pub struct TextArea<'a> {
     /// Lines of text wrapped by the specified width

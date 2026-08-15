@@ -18,7 +18,7 @@ impl Cursor {
         self.byte_idx -= ch.len_utf8();
     }
 
-    /// Set cursor poisition to `(line_idx, byte_idx)`.
+    /// Set cursor position to `(line_idx, byte_idx)`.
     pub fn jump(&mut self, line_idx: usize, byte_idx: usize) {
         self.line_idx = line_idx;
         self.byte_idx = byte_idx;
