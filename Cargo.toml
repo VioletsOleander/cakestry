@@ -19,3 +19,9 @@ tracing-appender = "0.2.5"
 tracing-subscriber = "0.3.23"
 unicode-segmentation = "1.13.3"
 unicode-width = "0.2.2"
+
+[package.metadata.typos.files]
+extend-exclude = ["/src/terminal/document/textwrap.rs"]
+
+[package.metadata.typos.default.extend-identifiers]
+RatatuiWidget = "RatatuiWidget"
