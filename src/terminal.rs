@@ -19,6 +19,21 @@ pub struct Terminal {
     default_terminal: DefaultTerminal,
 }
 
+impl Terminal {
+    /// Draw the user interface in the terminal.
+    pub fn draw(&mut self, session: &Session, client: &Client) {
+        self.default_terminal
+            .draw(|frame| TerminalRenderer::default().render(session, client, frame))
+            .expect("The terminal should be able to render itself.");
+    }
+
+    /// Read [`Event`] from user interaction and return it.
+    pub fn read_event(&self) -> Event {
+        crossterm::event::read()
+            .expect("The terminal should have the capability to read events from crossterm.")
+    }
+}
+
 impl Default for Terminal {
     fn default() -> Self {
         set_panic_hook();
@@ -74,21 +89,6 @@ fn restore_terminal() {
         SetCursorStyle::DefaultUserShape
     )
     .expect("The terminal should have the capability to execute given commands.");
-}
-
-impl Terminal {
-    /// Draw the user interface in the terminal.
-    pub fn draw(&mut self, session: &Session, client: &Client) {
-        self.default_terminal
-            .draw(|frame| TerminalRenderer::default().render(session, client, frame))
-            .expect("The terminal should be able to render itself.");
-    }
-
-    /// Read [`Event`] from user interaction and return it.
-    pub fn read_event(&self) -> Event {
-        crossterm::event::read()
-            .expect("The terminal should have the capability to read events from crossterm.")
-    }
 }
 
 #[derive(Default)]

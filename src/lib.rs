@@ -18,31 +18,6 @@ pub struct App {
     terminal: Terminal,
     runtime: Runtime,
 }
-
-impl Default for App {
-    fn default() -> Self {
-        let config = Config::from_file(".cakestry/config.toml");
-        let client = Client::new(
-            config
-                .get_provider(config.default_provider())
-                .expect("The default_provider should be a valid provider's name."),
-        );
-
-        let runtime = Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Current thread should be able to build a runtime on it.");
-
-        App {
-            config,
-            client,
-            session: Session::default(),
-            terminal: Terminal::default(),
-            runtime,
-        }
-    }
-}
-
 impl App {
     pub fn run(&mut self) {
         loop {
@@ -81,6 +56,30 @@ impl App {
                 }
                 _ => (),
             };
+        }
+    }
+}
+
+impl Default for App {
+    fn default() -> Self {
+        let config = Config::from_file(".cakestry/config.toml");
+        let client = Client::new(
+            config
+                .get_provider(config.default_provider())
+                .expect("The default_provider should be a valid provider's name."),
+        );
+
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("Current thread should be able to build a runtime on it.");
+
+        App {
+            config,
+            client,
+            session: Session::default(),
+            terminal: Terminal::default(),
+            runtime,
         }
     }
 }
