@@ -8,7 +8,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::{DefaultTerminal, Frame};
 
-use super::client::Client;
+use super::service::Service;
 use super::session::Session;
 
 mod document;
@@ -21,9 +21,9 @@ pub struct Terminal {
 
 impl Terminal {
     /// Draw the user interface in the terminal.
-    pub fn draw(&mut self, session: &Session, client: &Client) {
+    pub fn draw(&mut self, session: &Session, service: &Service) {
         self.default_terminal
-            .draw(|frame| TerminalRenderer::default().render(session, client, frame))
+            .draw(|frame| TerminalRenderer::default().render(session, service, frame))
             .expect("The terminal should be able to render itself.");
     }
 
@@ -103,11 +103,11 @@ impl TerminalRenderer {
     /// Exchanges and textarea of `session` will be rendered on a virtual document, which has larger
     /// length than the viewport of `frame`. The actually rendered area starts from `session`'s
     /// scroll offset.
-    pub fn render(&mut self, session: &Session, client: &Client, frame: &mut Frame) {
+    pub fn render(&mut self, session: &Session, service: &Service, frame: &mut Frame) {
         let [document_area, statusline_area] =
             Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(frame.area());
 
         self.render_document(session, document_area, frame);
-        self.render_statusline(client, statusline_area, frame.buffer_mut());
+        self.render_statusline(service, statusline_area, frame.buffer_mut());
     }
 }

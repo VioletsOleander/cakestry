@@ -30,12 +30,6 @@ impl Session {
         self.scroll
     }
 
-    pub fn last_exchange_mut(&mut self) -> &mut Exchange {
-        self.exchanges
-            .last_mut()
-            .expect("Exchanges should be non-empty")
-    }
-
     /// Clear and return the content of current user input.
     ///
     /// If current user input is empty, return `None`.
@@ -45,9 +39,6 @@ impl Session {
         }
 
         let user_input = self.user_input.take_lines().join("\n");
-
-        self.exchanges
-            .push(Exchange::new(user_input.clone(), String::new()));
         self.cursor.jump(0, 0);
 
         Some(user_input)
