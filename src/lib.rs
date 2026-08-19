@@ -1,5 +1,6 @@
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 use tokio::runtime::{Builder, Runtime};
+use tokio::sync::mpsc;
 
 mod config;
 mod service;
@@ -30,13 +31,14 @@ impl App {
                         break;
                     }
                     KeyCode::Enter if key.modifiers == KeyModifiers::NONE => {
-                        let Some(user_input) = self.session.take_user_input() else {
+                        if self.session.user_input().is_empty() {
                             continue;
-                        };
+                        }
 
-                        let request = self
-                            .service
-                            .make_request(self.session.exchanges(), &user_input);
+                        let request = self.service.make_request(
+                            self.session.exchanges(),
+                            self.session.user_input().content(),
+                        );
 
                         let handle = self.service.send_request(request, &self.runtime);
 

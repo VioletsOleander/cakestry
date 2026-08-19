@@ -1,7 +1,8 @@
 use async_openai::Client as OpenAIClient;
 use async_openai::config::OpenAIConfig;
 use async_openai::types::responses::{
-    CreateResponse, CreateResponseArgs, EasyInputMessage, EasyInputMessageArgs, Response, Role,
+    CreateResponse, CreateResponseArgs, EasyInputContent, EasyInputMessage, EasyInputMessageArgs,
+    Response, Role,
 };
 use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
@@ -29,7 +30,7 @@ impl Service {
     }
 
     /// Make a request with content based on given `exchanges` and `user_input`.
-    pub fn make_request(&self, exchanges: &[Exchange], user_input: &str) -> CreateResponse {
+    pub fn make_request(&self, exchanges: &[Exchange], user_input: String) -> CreateResponse {
         // Each exchange 2 message + 1 system prompt + 1 user input.
         let mut messages = Vec::with_capacity(2 * exchanges.len() + 2);
 
@@ -68,10 +69,10 @@ impl Service {
         &self.model
     }
 
-    fn make_message(&self, role: Role, content: &str) -> EasyInputMessage {
+    fn make_message(&self, role: Role, content: impl Into<String>) -> EasyInputMessage {
         EasyInputMessageArgs::default()
             .role(role)
-            .content(content)
+            .content(EasyInputContent::Text(content.into()))
             .build()
             .expect("Given content and role should be valid to build an input message.")
     }

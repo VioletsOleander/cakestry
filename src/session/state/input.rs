@@ -17,6 +17,11 @@ impl UserInput {
         &self.lines
     }
 
+    /// Return the contained content.
+    pub fn content(&self) -> String {
+        self.lines().join("\n")
+    }
+
     /// Return the char indexed by `line_idx` and `byte_idx`.
     pub fn char(&self, line_idx: usize, byte_idx: usize) -> char {
         self.lines[line_idx][byte_idx..]
@@ -32,11 +37,6 @@ impl UserInput {
 }
 
 impl UserInput {
-    /// Clear the contained lines and return them.
-    pub fn take_lines(&mut self) -> Vec<String> {
-        mem::replace(&mut self.lines, vec![String::new()])
-    }
-
     /// Remove the character at `byte_idx`, in the line index by `line_idx`
     ///
     /// The removed character is returned.
