@@ -19,13 +19,22 @@ use symbol::Separator;
 use textarea::TextArea;
 
 impl TerminalRenderer {
-    /// Render the exchanges and textarea of `session`.
+    /// Render the exchanges, textarea or agent output of `session`.
+    ///
+    /// The rendering of textarea and agent output are mutually exclusive. When the session is
+    /// awaiting the streaming agent output, the textarea will not be rendered. When the session is
+    /// waiting for subsequent user input, the agent output area will not be rendered (neither will
+    /// there be any agent output since the request has not been sent).
     pub(super) fn render_document(&mut self, session: &Session, area: Rect, frame: &mut Frame) {
         self.document_offset = 0;
         self.document_view = (session.scroll(), session.scroll() + area.height as usize);
 
         self.render_exchanges(session.exchanges(), area, frame.buffer_mut());
-        self.render_textarea(session.user_input(), session.cursor(), area, frame);
+
+        match session.agent_output() {
+            None => self.render_textarea(session.user_input(), session.cursor(), area, frame),
+            Some(agent_output) => self.render_agent_output(agent_output, area, frame.buffer_mut()),
+        };
     }
 
     /// Render exchanges on the document, each in the form of (query, separator, reply, separator).
@@ -106,6 +115,12 @@ impl TerminalRenderer {
             area,
             frame.buffer_mut(),
         );
+    }
+
+    fn render_agent_output(&mut self, agent_output: &str, area: Rect, buf: &mut Buffer) {
+        self.document_offset +=
+            self.render_widget(Reply::new(agent_output, area.width as usize), area, buf);
+        self.document_offset += self.render_widget(Separator::default(), area, buf);
     }
 
     /// Render `widget` on the visible view in `document_area`, and return the height of `widget`.

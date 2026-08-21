@@ -1,11 +1,13 @@
+use futures::stream::StreamExt;
+
 use async_openai::Client as OpenAIClient;
 use async_openai::config::OpenAIConfig;
 use async_openai::types::responses::{
     CreateResponse, CreateResponseArgs, EasyInputContent, EasyInputMessage, EasyInputMessageArgs,
-    Response, Role,
+    ResponseStreamEvent, Role,
 };
-use tokio::runtime::Runtime;
-use tokio::task::JoinHandle;
+use crossbeam_channel::Sender;
+use tokio::runtime::{Builder, Runtime};
 
 use super::config::Provider;
 use super::session::state::Exchange;
@@ -13,6 +15,16 @@ use super::session::state::Exchange;
 pub struct Service {
     client: OpenAIClient<OpenAIConfig>,
     model: String,
+    runtime: Runtime,
+}
+
+pub enum ServiceEvent {
+    StreamStart,
+    StreamComplete,
+    StreamFail,
+    StreamInComplete,
+    DeltaText(String),
+    FullText(String),
 }
 
 impl Service {
@@ -22,10 +34,17 @@ impl Service {
             .with_api_base(provider.base_url());
 
         let client = OpenAIClient::with_config(openai_config);
+        let model = provider.model().to_string();
+
+        let runtime = Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("The builder should be able to build a multi thread runtime");
 
         Service {
             client,
-            model: provider.model().to_string(),
+            model,
+            runtime,
         }
     }
 
@@ -44,25 +63,58 @@ impl Service {
         CreateResponseArgs::default()
             .model(&self.model)
             .input(messages)
+            .stream(true)
             .build()
-            .expect("Given messages should be valid to build a request.")
+            .expect("The bulider should be able to build a response.")
     }
 
-    /// Dispatch a task of sending `request` to `runtime`, and return a [`JoinHandle`] of the response.
-    pub async fn send_request(
-        &self,
-        request: CreateResponse,
-        runtime: &Runtime,
-    ) -> JoinHandle<Response> {
-        let client = self.client.clone();
+    pub fn launch_event_listener(&self, request: CreateResponse, sender: Sender<ServiceEvent>) {
+        let client = self.client().clone();
 
-        runtime.spawn(async move {
-            client
-                .responses()
-                .create(request)
+        // We have to use tokio runtime, because `async_openai` use `reqwest`, which uses futures
+        // provided by `tokio`, which requires tokio drivers, which come from a tokio runtime.
+        self.runtime.spawn(async move {
+            let mut stream = client.responses().create_stream(request).await.expect(
+                "The client should be able to create a streaming response with given request.",
+            );
+
+            for event in stream
+                .next()
                 .await
-                .expect("The client should be able to create a response with given request.")
-        })
+                .expect("The item in the stream should be a valid event.")
+            {
+                // Thread blocking do happen here.
+                // However, technically no dead lock will happen because the receiver side is an
+                // independent thread instead of a runtime scheduled task.
+                match event {
+                    ResponseStreamEvent::ResponseCreated(_) => {
+                        sender.send(ServiceEvent::StreamStart);
+                    }
+                    ResponseStreamEvent::ResponseCompleted(_) => {
+                        sender.send(ServiceEvent::StreamComplete);
+                    }
+                    ResponseStreamEvent::ResponseFailed(_) => {
+                        sender.send(ServiceEvent::StreamFail);
+                    }
+                    ResponseStreamEvent::ResponseIncomplete(_) => {
+                        sender.send(ServiceEvent::StreamInComplete);
+                    }
+                    ResponseStreamEvent::ResponseOutputTextDelta(event) => {
+                        sender.send(ServiceEvent::DeltaText(event.delta));
+                    }
+                    ResponseStreamEvent::ResponseOutputTextDone(event) => {
+                        sender.send(ServiceEvent::FullText(event.text));
+                    }
+                    _ => {
+                        tracing::debug!("Received unsupported event: {:#?}", event);
+                    }
+                }
+            }
+        });
+    }
+
+    pub fn client(&self) -> &OpenAIClient<OpenAIConfig> {
+        &self.client
     }
 
     pub fn model(&self) -> &str {

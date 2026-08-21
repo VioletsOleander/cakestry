@@ -1,6 +1,4 @@
-use crossterm::event::{Event, KeyCode, KeyModifiers};
-use tokio::runtime::{Builder, Runtime};
-use tokio::sync::mpsc;
+use crossbeam_channel::{Select, bounded};
 
 mod config;
 mod service;
@@ -8,53 +6,90 @@ mod session;
 mod terminal;
 
 use config::Config;
-use service::Service;
+use service::{Service, ServiceEvent};
 use session::Session;
-use terminal::Terminal;
+use terminal::{Terminal, TerminalEvent};
 
 pub struct App {
+    /// Config for the whole app.
     config: Config,
+    /// LLM completion service over HTTP.
     service: Service,
+    /// Session data and state storage.
     session: Session,
+    /// Terminal, for user interaction (event reading and tui rendering).
     terminal: Terminal,
-    runtime: Runtime,
+    /// Whether 'TerminalEvent::Confirm' should work.
+    confirm_locked: bool,
 }
 
 impl App {
     pub fn run(&mut self) {
+        let (term_tx, term_rx) = bounded(1);
+        let (serv_tx, serv_rx) = bounded(16);
+
+        let mut selections = Select::new();
+        let term_index = selections.recv(&term_rx);
+        let serv_index = selections.recv(&serv_rx);
+
+        self.terminal.launch_event_listener(term_tx);
+
         loop {
             self.terminal.draw(&self.session, &self.service);
 
-            match self.terminal.read_event() {
-                Event::Key(key) => match key.code {
-                    KeyCode::Esc => {
-                        break;
-                    }
-                    KeyCode::Enter if key.modifiers == KeyModifiers::NONE => {
-                        if self.session.user_input().is_empty() {
-                            continue;
+            let operation = selections.select();
+            match operation.index() {
+                i if i == term_index => {
+                    let event = operation.recv(&term_rx).expect(
+                        "The terminal event channel should keep alive before the receiver's drop.",
+                    );
+
+                    match event {
+                        // Special cases.
+                        TerminalEvent::Exit => {
+                            break;
                         }
+                        TerminalEvent::Confirm => {
+                            if self.confirm_locked {
+                                continue;
+                            }
 
-                        let request = self.service.make_request(
-                            self.session.exchanges(),
-                            self.session.user_input().content(),
-                        );
+                            if self.session.user_input().is_empty() {
+                                continue;
+                            }
 
-                        let handle = self.service.send_request(request, &self.runtime);
+                            let request = self.service.make_request(
+                                self.session.exchanges(),
+                                self.session.user_input().lines().join("\n"),
+                            );
 
-                        // self.session
-                        //     .last_exchange_mut()
-                        //     .set_reply(response.output_text().unwrap_or_default());
+                            self.service.launch_event_listener(request, serv_tx.clone());
+                        }
+                        // Other cases.
+                        _ => {
+                            self.handle_term_event(event);
+                        }
                     }
-                    _ => {
-                        self.session.handle_key(key);
-                    }
-                },
-                Event::Mouse(mouse) => {
-                    self.session.handle_mouse(mouse);
                 }
-                _ => (),
-            };
+                i if i == serv_index => {
+                    let event = operation.recv(&serv_rx).expect(
+                        "The service event channel should keep alive before the receiver's drop.",
+                    );
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    fn handle_term_event(&mut self, event: TerminalEvent) {
+        match event {
+            TerminalEvent::Key(key) => {
+                self.session.handle_key(key);
+            }
+            TerminalEvent::Mouse(mouse) => {
+                self.session.handle_mouse(mouse);
+            }
+            _ => (),
         }
     }
 }
@@ -68,17 +103,12 @@ impl Default for App {
                 .expect("The default_provider should be a valid provider's name."),
         );
 
-        let runtime = Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Current thread should be able to build a runtime on it.");
-
         App {
             config,
             service,
             session: Session::default(),
             terminal: Terminal::default(),
-            runtime,
+            confirm_locked: false,
         }
     }
 }

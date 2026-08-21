@@ -75,6 +75,11 @@ impl UserInput {
     pub fn insert_line(&mut self, line_idx: usize, line: String) {
         self.lines.insert(line_idx, line);
     }
+
+    /// Remove all content.
+    pub fn clear(&mut self) {
+        self.lines.clear();
+    }
 }
 
 impl From<Vec<String>> for UserInput {
