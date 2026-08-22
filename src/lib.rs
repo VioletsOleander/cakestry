@@ -64,7 +64,7 @@ impl App {
 
                             self.session
                                 .add_exchange(Exchange::new(query, String::from("Waiting...")));
-                            self.service.make_respones(request, serv_tx.clone());
+                            self.service.make_responses(request, serv_tx.clone());
                         }
                         // Other cases.
                         _ => {

@@ -27,7 +27,7 @@ unicode-width = "0.2.2"
 
 # Tool: Typos
 [package.metadata.typos.files]
-extend-exclude = ["/src/terminal/document/textwrap.rs"]
+extend-exclude = ["/src/terminal/render/document/textwrap.rs"]
 
 [package.metadata.typos.default.extend-identifiers]
 RatatuiWidget = "RatatuiWidget"

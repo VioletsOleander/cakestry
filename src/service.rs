@@ -64,10 +64,10 @@ impl Service {
             .input(messages)
             .stream(true)
             .build()
-            .expect("The bulider should be able to build a response.")
+            .expect("The builder should be able to build a response.")
     }
 
-    pub fn make_respones(&self, request: CreateResponse, sender: Sender<ServiceEvent>) {
+    pub fn make_responses(&self, request: CreateResponse, sender: Sender<ServiceEvent>) {
         let client = self.client().clone();
 
         // We have to use tokio runtime, because `async_openai` use `reqwest`, which uses futures

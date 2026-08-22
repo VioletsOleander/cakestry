@@ -6,7 +6,7 @@ use crossbeam_channel::Sender;
 use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{
     DisableMouseCapture, EnableMouseCapture, Event as CrosstermEvent, KeyCode,
-    KeyEvent as CrosstermKeyEvent, KeyModifiers, MouseEvent as CrosstermMoustEvent,
+    KeyEvent as CrosstermKeyEvent, KeyModifiers, MouseEvent as CrosstermMouseEvent,
 };
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use ratatui::DefaultTerminal;
@@ -28,7 +28,7 @@ pub enum TerminalEvent {
     Exit,
     Confirm,
     Key(CrosstermKeyEvent),
-    Mouse(CrosstermMoustEvent),
+    Mouse(CrosstermMouseEvent),
 }
 
 impl Terminal {
