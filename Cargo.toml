@@ -4,6 +4,9 @@
 name = "cakestry"
 version = "0.1.0"
 edition = "2024"
+license = "Apache-2.0"
+description = "An agent in the terminal"
+repository = "https://github.com/VioletsOleander/cakestry"
 
 [dependencies]
 anyhow = "1.0.103"
