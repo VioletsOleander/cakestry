@@ -9,15 +9,15 @@ use crossterm::event::{
     KeyEvent as CrosstermKeyEvent, KeyModifiers, MouseEvent as CrosstermMoustEvent,
 };
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use ratatui::DefaultTerminal;
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Constraint, Layout};
-use ratatui::{DefaultTerminal, Frame};
 
 use super::service::Service;
 use super::session::Session;
 
-mod document;
-mod statusline;
+mod render;
+
+use render::TerminalRenderer;
 
 /// Wrapper of [`DefaultTerminal`].
 pub struct Terminal {
@@ -129,25 +129,4 @@ fn restore_terminal() {
         SetCursorStyle::DefaultUserShape
     )
     .expect("The terminal should have the capability to execute given commands.");
-}
-
-#[derive(Default)]
-struct TerminalRenderer {
-    document_offset: usize,
-    document_view: (usize, usize),
-}
-
-impl TerminalRenderer {
-    /// Render the visible part of the document and a status line on the given `frame`.
-    ///
-    /// Exchanges and textarea of `session` will be rendered on a virtual document, which has larger
-    /// length than the viewport of `frame`. The actually rendered area starts from `session`'s
-    /// scroll offset.
-    pub fn render(&mut self, session: &Session, service: &Service, frame: &mut Frame) {
-        let [document_area, statusline_area] =
-            Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(frame.area());
-
-        self.render_document(session, document_area, frame);
-        self.render_statusline(service, statusline_area, frame.buffer_mut());
-    }
 }

@@ -63,8 +63,7 @@ impl App {
                                 self.service.make_request(self.session.exchanges(), &query);
 
                             self.session
-                                .exchanges_mut()
-                                .push(Exchange::new(query, String::new()));
+                                .add_exchange(Exchange::new(query, String::from("Waiting...")));
                             self.service.make_respones(request, serv_tx.clone());
                         }
                         // Other cases.
@@ -101,6 +100,7 @@ impl App {
         match event {
             ServiceEvent::StreamStart => {
                 self.confirm_locked = true;
+                self.session.last_exchange_mut().reply_mut().clear();
             }
             ServiceEvent::StreamComplete
             | ServiceEvent::StreamFail
@@ -108,13 +108,10 @@ impl App {
                 self.confirm_locked = false;
             }
             ServiceEvent::DeltaText(delta) => {
-                let exchange = self
-                    .session
-                    .exchanges_mut()
-                    .last_mut()
-                    .expect("There should exist at least one exchange.");
-
-                exchange.reply_mut().push_str(&delta);
+                self.session
+                    .last_exchange_mut()
+                    .reply_mut()
+                    .push_str(&delta);
             }
         }
     }

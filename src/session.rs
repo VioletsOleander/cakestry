@@ -23,6 +23,10 @@ impl Session {
 
         user_input
     }
+
+    pub fn add_exchange(&mut self, exchange: Exchange) {
+        self.exchanges.push(exchange);
+    }
 }
 
 impl Session {
@@ -42,7 +46,9 @@ impl Session {
         self.scroll
     }
 
-    pub fn exchanges_mut(&mut self) -> &mut Vec<Exchange> {
-        &mut self.exchanges
+    pub fn last_exchange_mut(&mut self) -> &mut Exchange {
+        self.exchanges
+            .last_mut()
+            .expect("There should be at least one exchange.")
     }
 }
