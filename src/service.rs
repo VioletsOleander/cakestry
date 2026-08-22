@@ -24,7 +24,6 @@ pub enum ServiceEvent {
     StreamFail,
     StreamInComplete,
     DeltaText(String),
-    FullText(String),
 }
 
 impl Service {
@@ -49,7 +48,7 @@ impl Service {
     }
 
     /// Make a request with content based on given `exchanges` and `user_input`.
-    pub fn make_request(&self, exchanges: &[Exchange], user_input: String) -> CreateResponse {
+    pub fn make_request(&self, exchanges: &[Exchange], user_input: &str) -> CreateResponse {
         // Each exchange 2 message + 1 system prompt + 1 user input.
         let mut messages = Vec::with_capacity(2 * exchanges.len() + 2);
 
@@ -68,7 +67,7 @@ impl Service {
             .expect("The bulider should be able to build a response.")
     }
 
-    pub fn launch_event_listener(&self, request: CreateResponse, sender: Sender<ServiceEvent>) {
+    pub fn make_respones(&self, request: CreateResponse, sender: Sender<ServiceEvent>) {
         let client = self.client().clone();
 
         // We have to use tokio runtime, because `async_openai` use `reqwest`, which uses futures
@@ -78,36 +77,30 @@ impl Service {
                 "The client should be able to create a streaming response with given request.",
             );
 
-            for event in stream
-                .next()
-                .await
-                .expect("The item in the stream should be a valid event.")
-            {
+            while let Some(result) = stream.next().await {
+                let event = result.expect("The item in the stream should be a valid event.");
+                tracing::debug!("Received event: {:#?}", event);
+
                 // Thread blocking do happen here.
                 // However, technically no dead lock will happen because the receiver side is an
                 // independent thread instead of a runtime scheduled task.
                 match event {
                     ResponseStreamEvent::ResponseCreated(_) => {
-                        sender.send(ServiceEvent::StreamStart);
+                        let _ = sender.send(ServiceEvent::StreamStart);
                     }
                     ResponseStreamEvent::ResponseCompleted(_) => {
-                        sender.send(ServiceEvent::StreamComplete);
+                        let _ = sender.send(ServiceEvent::StreamComplete);
                     }
                     ResponseStreamEvent::ResponseFailed(_) => {
-                        sender.send(ServiceEvent::StreamFail);
+                        let _ = sender.send(ServiceEvent::StreamFail);
                     }
                     ResponseStreamEvent::ResponseIncomplete(_) => {
-                        sender.send(ServiceEvent::StreamInComplete);
+                        let _ = sender.send(ServiceEvent::StreamInComplete);
                     }
                     ResponseStreamEvent::ResponseOutputTextDelta(event) => {
-                        sender.send(ServiceEvent::DeltaText(event.delta));
+                        let _ = sender.send(ServiceEvent::DeltaText(event.delta));
                     }
-                    ResponseStreamEvent::ResponseOutputTextDone(event) => {
-                        sender.send(ServiceEvent::FullText(event.text));
-                    }
-                    _ => {
-                        tracing::debug!("Received unsupported event: {:#?}", event);
-                    }
+                    _ => (),
                 }
             }
         });

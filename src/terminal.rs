@@ -42,7 +42,7 @@ impl Terminal {
     /// Spawn a thread for infinite terminal event listening.
     ///
     /// The received event will be sent through `sender`.
-    pub fn launch_event_listener(&self, sender: Sender<TerminalEvent>) {
+    pub fn spawn_event_listener(&self, sender: Sender<TerminalEvent>) {
         thread::spawn(move || {
             loop {
                 let crossterm_event = crossterm::event::read()

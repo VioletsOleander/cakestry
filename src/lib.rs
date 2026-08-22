@@ -7,7 +7,7 @@ mod terminal;
 
 use config::Config;
 use service::{Service, ServiceEvent};
-use session::Session;
+use session::{Exchange, Session};
 use terminal::{Terminal, TerminalEvent};
 
 pub struct App {
@@ -32,7 +32,7 @@ impl App {
         let term_index = selections.recv(&term_rx);
         let serv_index = selections.recv(&serv_rx);
 
-        self.terminal.launch_event_listener(term_tx);
+        self.terminal.spawn_event_listener(term_tx);
 
         loop {
             self.terminal.draw(&self.session, &self.service);
@@ -58,12 +58,14 @@ impl App {
                                 continue;
                             }
 
-                            let request = self.service.make_request(
-                                self.session.exchanges(),
-                                self.session.user_input().lines().join("\n"),
-                            );
+                            let query = self.session.take_user_input();
+                            let request =
+                                self.service.make_request(self.session.exchanges(), &query);
 
-                            self.service.launch_event_listener(request, serv_tx.clone());
+                            self.session
+                                .exchanges_mut()
+                                .push(Exchange::new(query, String::new()));
+                            self.service.make_respones(request, serv_tx.clone());
                         }
                         // Other cases.
                         _ => {
@@ -75,6 +77,8 @@ impl App {
                     let event = operation.recv(&serv_rx).expect(
                         "The service event channel should keep alive before the receiver's drop.",
                     );
+
+                    self.handle_serv_event(event);
                 }
                 _ => unreachable!(),
             }
@@ -90,6 +94,28 @@ impl App {
                 self.session.handle_mouse(mouse);
             }
             _ => (),
+        }
+    }
+
+    fn handle_serv_event(&mut self, event: ServiceEvent) {
+        match event {
+            ServiceEvent::StreamStart => {
+                self.confirm_locked = true;
+            }
+            ServiceEvent::StreamComplete
+            | ServiceEvent::StreamFail
+            | ServiceEvent::StreamInComplete => {
+                self.confirm_locked = false;
+            }
+            ServiceEvent::DeltaText(delta) => {
+                let exchange = self
+                    .session
+                    .exchanges_mut()
+                    .last_mut()
+                    .expect("There should exist at least one exchange.");
+
+                exchange.reply_mut().push_str(&delta);
+            }
         }
     }
 }

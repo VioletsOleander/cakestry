@@ -1,4 +1,3 @@
-use std::mem;
 use std::ops::{Index, Range};
 
 /// Lines of text edited by the user.
@@ -15,11 +14,6 @@ impl UserInput {
     /// Return the contained lines.
     pub fn lines(&self) -> &Vec<String> {
         &self.lines
-    }
-
-    /// Return the contained content.
-    pub fn content(&self) -> String {
-        self.lines().join("\n")
     }
 
     /// Return the char indexed by `line_idx` and `byte_idx`.
