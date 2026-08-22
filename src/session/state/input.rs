@@ -72,7 +72,7 @@ impl UserInput {
 
     /// Remove all content.
     pub fn clear(&mut self) {
-        self.lines.clear();
+        self.lines = vec![String::new()];
     }
 }
 
