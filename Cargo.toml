@@ -22,7 +22,7 @@ tokio = { version = "1.53.1", features = ["rt-multi-thread"] }
 toml = "1.1.4"
 tracing = { version = "0.1.44", features = ["release_max_level_info"] }
 tracing-appender = "0.2.5"
-tracing-subscriber = "0.3.23"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 unicode-segmentation = "1.13.3"
 unicode-width = "0.2.2"
 
