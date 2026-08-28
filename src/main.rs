@@ -1,4 +1,6 @@
 use clap::Parser;
+use tracing_appender::rolling;
+use tracing_subscriber::EnvFilter;
 
 use cakestry::App;
 
@@ -8,8 +10,9 @@ struct Args {}
 
 fn main() {
     // Initialize the default global tracing subscriber.
-    let appender = tracing_appender::rolling::never(".", "cakestry.log");
+    let appender = rolling::never(".", "cakestry.log");
     let subscriber_builder = tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_env("CAKESTRY_LOG"))
         .with_ansi(false)
         .with_writer(appender);
 
