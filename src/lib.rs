@@ -98,20 +98,25 @@ impl App {
 
     fn handle_serv_event(&mut self, event: ServiceEvent) {
         match event {
-            ServiceEvent::StreamStart => {
+            ServiceEvent::ResponseStart => {
                 self.confirm_locked = true;
-                self.session.last_exchange_mut().reply_mut().clear();
             }
-            ServiceEvent::StreamComplete
-            | ServiceEvent::StreamFail
-            | ServiceEvent::StreamInComplete => {
+            ServiceEvent::ResponseComplete
+            | ServiceEvent::ResponseFail
+            | ServiceEvent::ResponseInComplete => {
                 self.confirm_locked = false;
             }
-            ServiceEvent::DeltaText(delta) => {
+            ServiceEvent::ReasoningStart => {
                 self.session
-                    .last_exchange_mut()
-                    .reply_mut()
-                    .push_str(&delta);
+                    .last_exchange()
+                    .set_reply(String::from("Thinking..."));
+            }
+            ServiceEvent::ReasoningComplete(_) => (), // No sure where to store reasoning content now.
+            ServiceEvent::MessageStart => {
+                self.session.last_exchange().set_reply(String::new());
+            }
+            ServiceEvent::MessageDeltaText(delta) => {
+                self.session.last_exchange().push_to_reply(&delta);
             }
         }
     }

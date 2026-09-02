@@ -4,7 +4,7 @@ use async_openai::Client as OpenAIClient;
 use async_openai::config::OpenAIConfig;
 use async_openai::types::responses::{
     CreateResponse, CreateResponseArgs, EasyInputContent, EasyInputMessage, EasyInputMessageArgs,
-    ResponseStreamEvent, Role,
+    OutputItem, ResponseStreamEvent, Role,
 };
 use crossbeam_channel::Sender;
 use tokio::runtime::{Builder, Runtime};
@@ -19,11 +19,14 @@ pub struct Service {
 }
 
 pub enum ServiceEvent {
-    StreamStart,
-    StreamComplete,
-    StreamFail,
-    StreamInComplete,
-    DeltaText(String),
+    ResponseStart,
+    ResponseComplete,
+    ResponseFail,
+    ResponseInComplete,
+    ReasoningStart,
+    ReasoningComplete(String),
+    MessageStart,
+    MessageDeltaText(String),
 }
 
 impl Service {
@@ -81,24 +84,42 @@ impl Service {
                 let event = result.expect("The item in the stream should be a valid event.");
                 tracing::debug!("Received event: {:#?}", event);
 
-                // Thread blocking do happen here.
-                // However, technically no dead lock will happen because the receiver side is an
-                // independent thread instead of a runtime scheduled task.
+                // Thread blocking do happen here. However, technically no dead lock will happen
+                // because the receiver side is an independent thread instead of a runtime scheduled
+                // task.
+
+                // `sender.send` returns error when the receiver is dropped, which will only happen
+                // if the main thread is dropped, i.e. the application exit. Therefore completely
+                // ignoring the possible send error is fine here.
                 match event {
                     ResponseStreamEvent::ResponseCreated(_) => {
-                        let _ = sender.send(ServiceEvent::StreamStart);
+                        let _ = sender.send(ServiceEvent::ResponseStart);
                     }
                     ResponseStreamEvent::ResponseCompleted(_) => {
-                        let _ = sender.send(ServiceEvent::StreamComplete);
+                        let _ = sender.send(ServiceEvent::ResponseComplete);
                     }
                     ResponseStreamEvent::ResponseFailed(_) => {
-                        let _ = sender.send(ServiceEvent::StreamFail);
+                        let _ = sender.send(ServiceEvent::ResponseFail);
                     }
                     ResponseStreamEvent::ResponseIncomplete(_) => {
-                        let _ = sender.send(ServiceEvent::StreamInComplete);
+                        let _ = sender.send(ServiceEvent::ResponseInComplete);
+                    }
+                    ResponseStreamEvent::ResponseOutputItemAdded(event) => match event.item {
+                        OutputItem::Reasoning(_) => {
+                            let _ = sender.send(ServiceEvent::ReasoningStart);
+                        }
+                        OutputItem::Message(_) => {
+                            let _ = sender.send(ServiceEvent::MessageStart);
+                        }
+                        _ => (),
+                    },
+                    ResponseStreamEvent::ResponseReasoningTextDone(event) => {
+                        // There is no need for streaming display reasoning content, therefore just
+                        // take the full content from the complete event.
+                        let _ = sender.send(ServiceEvent::ReasoningComplete(event.text));
                     }
                     ResponseStreamEvent::ResponseOutputTextDelta(event) => {
-                        let _ = sender.send(ServiceEvent::DeltaText(event.delta));
+                        let _ = sender.send(ServiceEvent::MessageDeltaText(event.delta));
                     }
                     _ => (),
                 }
