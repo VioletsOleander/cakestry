@@ -46,7 +46,7 @@ impl Session {
         self.scroll
     }
 
-    pub fn last_exchange_mut(&mut self) -> &mut Exchange {
+    pub fn last_exchange(&mut self) -> &mut Exchange {
         self.exchanges
             .last_mut()
             .expect("There should be at least one exchange.")

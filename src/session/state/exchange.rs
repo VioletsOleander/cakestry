@@ -17,7 +17,11 @@ impl Exchange {
         &self.reply
     }
 
-    pub fn reply_mut(&mut self) -> &mut String {
-        &mut self.reply
+    pub fn set_reply(&mut self, reply: String) {
+        self.reply = reply;
+    }
+
+    pub fn push_to_reply(&mut self, delta: &str) {
+        self.reply.push_str(delta);
     }
 }
