@@ -12,6 +12,9 @@ use tokio::runtime::{Builder, Runtime};
 use super::config::Provider;
 use super::session::state::Exchange;
 
+// Make service a real service, listen through channel and response through channel.
+// To handle bounded scenario, maybe try_send should be used and use the error as notification
+
 pub struct Service {
     client: OpenAIClient<OpenAIConfig>,
     model: String,
