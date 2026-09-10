@@ -12,9 +12,6 @@ use tokio::runtime::{Builder, Runtime};
 use super::config::Provider;
 use super::session::state::Exchange;
 
-// Make service a real service, listen through channel and response through channel.
-// To handle bounded scenario, maybe try_send should be used and use the error as notification
-
 pub struct Service {
     client: OpenAIClient<OpenAIConfig>,
     model: String,
@@ -40,7 +37,6 @@ impl Service {
 
         let client = OpenAIClient::with_config(openai_config);
         let model = provider.model().to_string();
-
         let runtime = Builder::new_multi_thread()
             .enable_all()
             .build()
