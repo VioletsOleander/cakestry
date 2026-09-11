@@ -7,7 +7,7 @@ use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{
     DisableMouseCapture, EnableMouseCapture, Event as CrosstermEvent, KeyCode as CrosstermKeyCode,
     KeyEvent as CrosstermKeyEvent, KeyModifiers as CrosstermKeyModifiers,
-    MouseEvent as CrosstermMouseEvent,
+    MouseEvent as CrosstermMouseEvent, MouseEventKind as CrosstermMouseEventKind,
 };
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use ratatui::DefaultTerminal;
@@ -20,6 +20,9 @@ mod render;
 
 use render::TerminalRenderer;
 
+pub type KeyEvent = CrosstermKeyEvent;
+pub type MouseEvent = CrosstermMouseEvent;
+pub type MouseEventKind = CrosstermMouseEventKind;
 pub type KeyCode = CrosstermKeyCode;
 pub type KeyModifiers = CrosstermKeyModifiers;
 

@@ -1,6 +1,5 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
-
 use super::Session;
+use crate::terminal::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
 impl Session {
     pub fn handle_mouse(&mut self, mouse: MouseEvent) {
