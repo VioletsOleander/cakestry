@@ -9,25 +9,23 @@ mod command;
 mod event;
 mod state;
 
-use command::CommandParser;
+// use command::CommandLine;
 use state::{Mode, State};
 
 pub struct App {
-    /// Config for the whole app.
     config: Config,
-    /// LLM completion service over HTTP.
-    service: Service,
-    /// Session data and state storage.
-    session: Session,
+    state: State,
     /// Terminal, for user interaction (event reading and tui rendering).
     terminal: Terminal,
-    /// App state.
-    state: State,
+    /// LLM completion service over HTTP.
+    service: Service,
+    session: Session,
+    // command_line: CommandLine,
 }
 
 enum Action {
     LaunchRequest,
-    LaunchCommand,
+    // LaunchCommand,
     SwitchMode(Mode),
     HandleKey(KeyEvent),
     HandleMouse(MouseEvent),
@@ -66,9 +64,9 @@ impl App {
                                 .add_exchange(Exchange::new(query, String::from("Waiting...")));
                             self.service.make_responses(request, serv_tx.clone());
                         }
-                        Action::LaunchCommand(command) => {
-                            let command = CommandParser::parse(command);
-                        }
+                        // Action::LaunchCommand(command) => {
+                        //     let command = CommandParser::parse(command);
+                        // }
                         Action::SwitchMode(mode) => {
                             self.state.set_mode(mode);
                         }

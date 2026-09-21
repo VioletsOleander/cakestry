@@ -39,7 +39,8 @@ impl App {
 
                             Action::LaunchRequest
                         }
-                        Mode::Command => Action::LaunchCommand,
+                        // Mode::Command => Action::LaunchCommand,
+                        _ => Action::None,
                     },
                     _ => Action::HandleKey(key),
                 },
