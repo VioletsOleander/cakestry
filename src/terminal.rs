@@ -5,8 +5,9 @@ use std::thread;
 use crossbeam_channel::Sender;
 use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{
-    DisableMouseCapture, EnableMouseCapture, Event as CrosstermEvent, KeyCode,
-    KeyEvent as CrosstermKeyEvent, KeyModifiers, MouseEvent as CrosstermMouseEvent,
+    DisableMouseCapture, EnableMouseCapture, Event as CrosstermEvent, KeyCode as CrosstermKeyCode,
+    KeyEvent as CrosstermKeyEvent, KeyModifiers as CrosstermKeyModifiers,
+    MouseEvent as CrosstermMouseEvent, MouseEventKind as CrosstermMouseEventKind,
 };
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use ratatui::DefaultTerminal;
@@ -19,16 +20,19 @@ mod render;
 
 use render::TerminalRenderer;
 
-/// Wrapper of [`DefaultTerminal`].
-pub struct Terminal {
-    default_terminal: DefaultTerminal,
-}
+pub type KeyEvent = CrosstermKeyEvent;
+pub type MouseEvent = CrosstermMouseEvent;
+pub type MouseEventKind = CrosstermMouseEventKind;
+pub type KeyCode = CrosstermKeyCode;
+pub type KeyModifiers = CrosstermKeyModifiers;
 
 pub enum TerminalEvent {
-    Exit,
-    Confirm,
     Key(CrosstermKeyEvent),
     Mouse(CrosstermMouseEvent),
+}
+
+pub struct Terminal {
+    default_terminal: DefaultTerminal,
 }
 
 impl Terminal {
@@ -42,20 +46,14 @@ impl Terminal {
     /// Spawn a thread for infinite terminal event listening.
     ///
     /// The received event will be sent through `sender`.
-    pub fn spawn_event_listener(&self, sender: Sender<TerminalEvent>) {
+    pub fn spawn_listener(&self, sender: Sender<TerminalEvent>) {
         thread::spawn(move || {
             loop {
                 let crossterm_event = crossterm::event::read()
                     .expect("The terminal should have the capability to read crossterm events.");
 
                 let terminal_event = match crossterm_event {
-                    CrosstermEvent::Key(key) => match key.code {
-                        KeyCode::Esc => TerminalEvent::Exit,
-                        KeyCode::Enter if key.modifiers == KeyModifiers::NONE => {
-                            TerminalEvent::Confirm
-                        }
-                        _ => TerminalEvent::Key(key),
-                    },
+                    CrosstermEvent::Key(key) => TerminalEvent::Key(key),
                     CrosstermEvent::Mouse(mouse) => TerminalEvent::Mouse(mouse),
                     // Ignore not supported crossterm event.
                     _ => continue,

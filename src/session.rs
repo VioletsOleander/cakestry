@@ -14,22 +14,6 @@ pub struct Session {
 }
 
 impl Session {
-    /// Clear user input and return the its content.
-    pub fn take_user_input(&mut self) -> String {
-        let user_input = self.user_input.lines().join("\n");
-
-        self.user_input.clear();
-        self.cursor.jump(0, 0);
-
-        user_input
-    }
-
-    pub fn add_exchange(&mut self, exchange: Exchange) {
-        self.exchanges.push(exchange);
-    }
-}
-
-impl Session {
     pub fn exchanges(&self) -> &Vec<Exchange> {
         &self.exchanges
     }
@@ -50,5 +34,21 @@ impl Session {
         self.exchanges
             .last_mut()
             .expect("There should be at least one exchange.")
+    }
+}
+
+impl Session {
+    /// Clear user input and return the its content.
+    pub fn take_user_input(&mut self) -> String {
+        let user_input = self.user_input.lines().join("\n");
+
+        self.user_input.clear();
+        self.cursor.jump(0, 0);
+
+        user_input
+    }
+
+    pub fn add_exchange(&mut self, exchange: Exchange) {
+        self.exchanges.push(exchange);
     }
 }

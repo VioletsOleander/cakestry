@@ -1,12 +1,12 @@
 use clap::Parser;
+
 use tracing_appender::rolling;
 use tracing_subscriber::EnvFilter;
 
-use cakestry::App;
+mod arg;
 
-/// AI agent in the command line
-#[derive(Parser)]
-struct Args {}
+use arg::CakestryArgs;
+use cakestry::App;
 
 fn main() {
     // Initialize the default global tracing subscriber.
@@ -18,7 +18,7 @@ fn main() {
 
     subscriber_builder.init();
 
-    let _ = Args::parse();
+    let _ = CakestryArgs::parse();
     let mut app = App::default();
 
     app.run();

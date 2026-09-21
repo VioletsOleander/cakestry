@@ -37,7 +37,6 @@ impl Service {
 
         let client = OpenAIClient::with_config(openai_config);
         let model = provider.model().to_string();
-
         let runtime = Builder::new_multi_thread()
             .enable_all()
             .build()
