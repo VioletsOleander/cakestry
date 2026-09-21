@@ -1,5 +1,6 @@
 use std::fs;
 
+use anyhow::{Context, Result};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -10,18 +11,11 @@ pub struct Config {
 }
 
 impl Config {
-    /// Return a [`Config`] instance constructed from the content of `file`.
-    ///
-    /// `file` is expected to be a relative path to the configuration file.
-    pub fn from_file(file: &str) -> Config {
-        let content = fs::read_to_string(file).unwrap_or_else(|e| {
-            panic!(
-                "A configuration file should exist in given path {}: {}",
-                file, e
-            )
-        });
+    pub fn from_file(path: &str) -> Result<Config> {
+        let content = fs::read_to_string(path)
+            .with_context(|| format!("failed to read content from path '{}'", path))?;
 
-        toml::from_str(&content).expect("The format of config.toml should be valid to parse")
+        toml::from_str(&content).context("failed to parse config content")
     }
 
     /// Search for a provider by the given `name`, if found, return it.
