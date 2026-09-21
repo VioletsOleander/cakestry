@@ -1,5 +1,24 @@
 use clap::Parser;
+use clap::builder::Styles;
 
-/// AI agent in the command line
 #[derive(Parser)]
-pub struct CakestryArgs {}
+#[command(version, about)]
+#[command(styles = Styles::default())]
+pub struct CakestryArgs {
+    /// Relative path to the config file.
+    #[arg(long, default_value = ".cakestry/config.toml")]
+    config_path: String,
+    /// Relative path to the log file.
+    #[arg(long, default_value = "cakestry.log")]
+    log_path: String,
+}
+
+impl CakestryArgs {
+    pub fn config_path(&self) -> &str {
+        &self.config_path
+    }
+
+    pub fn log_path(&self) -> &str {
+        &self.log_path
+    }
+}
