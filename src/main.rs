@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-
 use crossbeam_channel::{Select, bounded};
 use tracing_appender::rolling;
 use tracing_subscriber::EnvFilter;
@@ -9,7 +8,7 @@ mod arg;
 mod config;
 mod event;
 mod service;
-mod terminal;
+mod session;
 
 use arg::Args;
 use config::Config;
@@ -22,8 +21,8 @@ fn main() -> Result<()> {
     init_subscriber(args.log_path());
 
     let (term_tx, term_rx) = bounded(1);
-    let term_listener = TerminalEventListener::build()?;
-    term_listener.run(term_tx);
+    let listener = TerminalEventListener::build()?;
+    listener.run(term_tx);
 
     let (serv_tx, serv_rx) = bounded(16);
 

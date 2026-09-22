@@ -1,144 +1,77 @@
-use futures::stream::StreamExt;
-
-use async_openai::Client as OpenAIClient;
+use anyhow::Result;
+use async_openai::Client;
 use async_openai::config::OpenAIConfig;
-use async_openai::types::responses::{
-    CreateResponse, CreateResponseArgs, EasyInputContent, EasyInputMessage, EasyInputMessageArgs,
-    OutputItem, ResponseStreamEvent, Role,
-};
+use async_openai::error::OpenAIError;
+use async_openai::types::responses::{CreateResponseArgs, EasyInputMessage, ResponseStreamEvent};
 use crossbeam_channel::Sender;
+use futures::stream::StreamExt;
 use tokio::runtime::{Builder, Runtime};
 
-use super::config::Provider;
-use super::session::state::Exchange;
+use crate::config::Provider;
 
 pub struct Service {
-    client: OpenAIClient<OpenAIConfig>,
     model: String,
+    client: Client<OpenAIConfig>,
+    sender: Sender<Result<ResponseStreamEvent, OpenAIError>>,
     runtime: Runtime,
 }
 
-pub enum ServiceEvent {
-    ResponseStart,
-    ResponseComplete,
-    ResponseFail,
-    ResponseInComplete,
-    ReasoningStart,
-    ReasoningComplete(String),
-    MessageStart,
-    MessageDeltaText(String),
-}
-
 impl Service {
-    pub fn new(provider: &Provider) -> Self {
-        let openai_config = OpenAIConfig::default()
+    pub fn build(
+        provider: &Provider,
+        sender: Sender<Result<ResponseStreamEvent, OpenAIError>>,
+    ) -> Result<Self> {
+        let config = OpenAIConfig::default()
             .with_api_key(provider.api_key())
             .with_api_base(provider.base_url());
 
-        let client = OpenAIClient::with_config(openai_config);
+        let client = Client::with_config(config);
         let model = provider.model().to_string();
-        let runtime = Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .expect("The builder should be able to build a multi thread runtime");
+        let runtime = Builder::new_multi_thread().enable_all().build()?;
 
-        Service {
-            client,
+        Ok(Service {
             model,
+            client,
+            sender,
             runtime,
-        }
+        })
     }
 
-    /// Make a request with content based on given `exchanges` and `user_input`.
-    pub fn make_request(&self, exchanges: &[Exchange], user_input: &str) -> CreateResponse {
-        // Each exchange 2 message + 1 system prompt + 1 user input.
-        let mut messages = Vec::with_capacity(2 * exchanges.len() + 2);
-
-        messages.push(self.make_message(Role::System, "You are a helpful assistant"));
-        for exchange in exchanges {
-            messages.push(self.make_message(Role::User, exchange.query()));
-            messages.push(self.make_message(Role::Assistant, exchange.reply()));
-        }
-        messages.push(self.make_message(Role::User, user_input));
-
-        CreateResponseArgs::default()
+    pub fn launch_request(&self, messages: Vec<EasyInputMessage>) -> Result<()> {
+        let request = CreateResponseArgs::default()
             .model(&self.model)
             .input(messages)
             .stream(true)
-            .build()
-            .expect("The builder should be able to build a response.")
-    }
+            .build()?;
 
-    pub fn make_responses(&self, request: CreateResponse, sender: Sender<ServiceEvent>) {
-        let client = self.client().clone();
+        let client = self.client.clone();
+        let sender = self.sender.clone();
 
-        // We have to use tokio runtime, because `async_openai` use `reqwest`, which uses futures
-        // provided by `tokio`, which requires tokio drivers, which come from a tokio runtime.
         self.runtime.spawn(async move {
-            let mut stream = client.responses().create_stream(request).await.expect(
-                "The client should be able to create a streaming response with given request.",
-            );
+            let result = client.responses().create_stream(request).await;
 
-            while let Some(result) = stream.next().await {
-                let event = result.expect("The item in the stream should be a valid event.");
-                tracing::debug!("Received event: {:#?}", event);
-
-                // Thread blocking do happen here. However, technically no dead lock will happen
-                // because the receiver side is an independent thread instead of a runtime scheduled
-                // task.
-
-                // `sender.send` returns error when the receiver is dropped, which will only happen
-                // if the main thread is dropped, i.e. the application exit. Therefore completely
-                // ignoring the possible send error is fine here.
-                match event {
-                    ResponseStreamEvent::ResponseCreated(_) => {
-                        let _ = sender.send(ServiceEvent::ResponseStart);
-                    }
-                    ResponseStreamEvent::ResponseCompleted(_) => {
-                        let _ = sender.send(ServiceEvent::ResponseComplete);
-                    }
-                    ResponseStreamEvent::ResponseFailed(_) => {
-                        let _ = sender.send(ServiceEvent::ResponseFail);
-                    }
-                    ResponseStreamEvent::ResponseIncomplete(_) => {
-                        let _ = sender.send(ServiceEvent::ResponseInComplete);
-                    }
-                    ResponseStreamEvent::ResponseOutputItemAdded(event) => match event.item {
-                        OutputItem::Reasoning(_) => {
-                            let _ = sender.send(ServiceEvent::ReasoningStart);
+            match result {
+                Ok(mut stream) => {
+                    while let Some(result) = stream.next().await {
+                        if let Ok(event) = &result {
+                            tracing::debug!("received event: {:#?}", event);
                         }
-                        OutputItem::Message(_) => {
-                            let _ = sender.send(ServiceEvent::MessageStart);
+
+                        if sender.send(result).is_err() {
+                            break;
                         }
-                        _ => (),
-                    },
-                    ResponseStreamEvent::ResponseReasoningTextDone(event) => {
-                        // There is no need for streaming display reasoning content, therefore just
-                        // take the full content from the complete event.
-                        let _ = sender.send(ServiceEvent::ReasoningComplete(event.text));
                     }
-                    ResponseStreamEvent::ResponseOutputTextDelta(event) => {
-                        let _ = sender.send(ServiceEvent::MessageDeltaText(event.delta));
-                    }
-                    _ => (),
+                }
+                Err(err) => {
+                    let _ = sender.send(Err(err));
                 }
             }
         });
-    }
 
-    pub fn client(&self) -> &OpenAIClient<OpenAIConfig> {
-        &self.client
+        Ok(())
     }
 
     pub fn model(&self) -> &str {
         &self.model
-    }
-
-    fn make_message(&self, role: Role, content: impl Into<String>) -> EasyInputMessage {
-        EasyInputMessageArgs::default()
-            .role(role)
-            .content(EasyInputContent::Text(content.into()))
-            .build()
-            .expect("Given content and role should be valid to build an input message.")
     }
 }
