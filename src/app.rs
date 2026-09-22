@@ -13,7 +13,6 @@ mod state;
 use state::{Mode, State};
 
 pub struct App {
-    config: Config,
     state: State,
     /// Terminal, for user interaction (event reading and tui rendering).
     terminal: Terminal,
@@ -92,8 +91,7 @@ impl App {
 }
 
 impl Default for App {
-    fn default() -> Self {
-        let config = Config::from_file(".cakestry/config.toml");
+    fn default(config: Config) -> Self {
         let service = Service::new(
             config
                 .get_provider(config.default_provider())
@@ -101,7 +99,6 @@ impl Default for App {
         );
 
         App {
-            config,
             service,
             session: Session::default(),
             terminal: Terminal::default(),

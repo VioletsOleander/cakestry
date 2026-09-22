@@ -113,7 +113,7 @@ fn set_panic_hook() {
         hook(info);
     }));
 }
-
+// Avoid panic in a panic hook: https://stackoverflow.com/questions/73467248/what-happens-when-a-panic-hook-panics
 fn restore_terminal() {
     // Disabling raw mode first is important as it has more side effects than leaving the alternate
     // screen buffer.

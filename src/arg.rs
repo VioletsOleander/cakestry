@@ -4,7 +4,7 @@ use clap::builder::Styles;
 #[derive(Parser)]
 #[command(version, about)]
 #[command(styles = Styles::default())]
-pub struct CakestryArgs {
+pub struct Args {
     /// Relative path to the config file.
     #[arg(long, default_value = ".cakestry/config.toml")]
     config_path: String,
@@ -13,7 +13,7 @@ pub struct CakestryArgs {
     log_path: String,
 }
 
-impl CakestryArgs {
+impl Args {
     pub fn config_path(&self) -> &str {
         &self.config_path
     }
