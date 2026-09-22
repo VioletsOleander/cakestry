@@ -1,8 +1,8 @@
-use std::io::{Write, stderr, stdout};
+use std::io::{self, Write, stderr, stdout};
 use std::panic;
 use std::thread;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use crossbeam_channel::Sender;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event, read};
 use crossterm::execute;
@@ -24,27 +24,20 @@ impl TerminalEventListener {
         Ok(TerminalEventListener)
     }
 
-    pub fn run(&self, sender: Sender<Event>) -> Result<()> {
+    pub fn run(&self, sender: Sender<Result<Event, io::Error>>) -> Result<()> {
         thread::spawn(move || {
             loop {
-                match read() {
-                    Ok(event) => {
-                        if let Err(_) = sender.send(event) {
-                            // Technically, the break is not necessary. Because channel disconnection means
-                            // receiver drop, which in turn means app termination.
-                            // Therefore this thread will certainly be cleaned up even without this break.
-                            // But to be pedantic, we can just keep it.
-                            tracing::info!(
-                                "terminal event channel disconnected, break the event reading loop"
-                            );
-                            break;
-                        }
-                    }
-                    Err(err) => {
-                        tracing::error!("failed to read terminal event, error {err} encountered");
-                        eprintln!("failed to read terminal event, error {err} encountered");
-                        break;
-                    }
+                let result = read();
+
+                if sender.send(result).is_err() {
+                    // Technically, the break is not necessary. Because channel disconnection means
+                    // receiver drop, which in turn means app termination.
+                    // Therefore this thread will certainly be cleaned up even without this break.
+                    // But to be pedantic, we can just keep it.
+                    tracing::info!(
+                        "terminal event channel disconnected, break the event reading loop"
+                    );
+                    break;
                 }
             }
         });

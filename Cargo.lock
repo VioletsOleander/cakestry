@@ -243,7 +243,6 @@ dependencies = [
  "futures",
  "ratatui",
  "serde",
- "thiserror 2.0.20",
  "tokio",
  "toml",
  "tracing",
