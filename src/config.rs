@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
-    default_provider: String,
+    provider: String,
     /// Providers of API service.
     providers: Vec<Provider>,
 }
@@ -18,15 +18,14 @@ impl Config {
         toml::from_str(&content).context("failed to parse config content")
     }
 
-    /// Search for a provider by the given `name`, if found, return it.
-    pub fn get_provider(&self, name: &str) -> Option<&Provider> {
+    pub fn find_provider(&self, name: &str) -> Option<&Provider> {
         self.providers
             .iter()
             .find(|&provider| provider.name == name)
     }
 
-    pub fn default_provider(&self) -> &str {
-        &self.default_provider
+    pub fn provider(&self) -> &str {
+        &self.provider
     }
 }
 
