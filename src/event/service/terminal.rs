@@ -8,9 +8,9 @@ use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event, read};
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 
-pub struct TerminalEventListener;
+pub struct TerminalEventService;
 
-impl TerminalEventListener {
+impl TerminalEventService {
     pub fn build() -> Result<Self> {
         enable_raw_mode()?;
         execute!(stdout(), EnableMouseCapture)?;
@@ -21,7 +21,7 @@ impl TerminalEventListener {
             current_hook(info);
         }));
 
-        Ok(TerminalEventListener)
+        Ok(TerminalEventService)
     }
 
     pub fn run(&self, sender: Sender<Result<Event, io::Error>>) -> Result<()> {
@@ -46,7 +46,7 @@ impl TerminalEventListener {
     }
 }
 
-impl Drop for TerminalEventListener {
+impl Drop for TerminalEventService {
     fn drop(&mut self) {
         restore();
     }

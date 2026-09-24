@@ -1,3 +1,2 @@
-mod terminal;
-
-pub use terminal::TerminalEventListener;
+pub mod handler;
+pub mod service;
