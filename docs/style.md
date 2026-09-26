@@ -156,6 +156,47 @@ impl Foo {
 }
 ```
 
+## Statement
+
+### Area Separation
+
+Separate declaration area and operation area, i.e. put a blank line between `let` bindings and
+operations (like function calling, arithmetic calculation). Unless there is only one declaration
+statement and one operation.
+
+Example:
+
+```rust
+fn operation_1(foo: usize, bar: usize) {
+    // function body
+}
+
+fn operation_2(foo: usize, bar: usize) {
+    // function body
+}
+
+// Require a blank line between the declaration area and the operation area.
+
+// declaration area
+let foo = 1;
+let bar = 2;
+
+// operation area
+operation_1(foo, bar);
+operation_2(foo, bar);
+```
+
+```rust
+fn operation(foo: usize) {
+    // function body
+}
+
+// Allow no blank line if only one statement exists in both area, for conciseness.
+
+let foo = 1;
+operation(foo);
+```
+
 ## Method
 
 ### `default` and `new`
