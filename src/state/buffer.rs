@@ -185,19 +185,18 @@ mod test {
     #[test]
     fn delete_char() {
         let line = "Hello world";
-        let expected_line = "Hello worl";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
             cursor_line: 0,
-            cursor_char: expected_line.len(),
+            cursor_char: "Hello worl".len(),
         };
 
         buffer.delete_char();
 
         assert_eq!(buffer.lines.len(), 1);
-        assert_eq!(buffer.lines[0], expected_line);
+        assert_eq!(buffer.lines[0], "Hello worl");
         assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, expected_line.len());
+        assert_eq!(buffer.cursor_char, "Hello worl".len());
     }
 
     #[test]
@@ -221,7 +220,6 @@ mod test {
     #[test]
     fn delete_prev_char() {
         let line = "Hello world";
-        let expected_line = "Hello worl";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
             cursor_line: 0,
@@ -231,9 +229,9 @@ mod test {
         buffer.delete_prev_char();
 
         assert_eq!(buffer.lines.len(), 1);
-        assert_eq!(buffer.lines[0], expected_line);
+        assert_eq!(buffer.lines[0], "Hello worl");
         assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, expected_line.len());
+        assert_eq!(buffer.cursor_char, "Hello worl".len());
     }
 
     #[test]
