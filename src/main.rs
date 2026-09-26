@@ -34,7 +34,7 @@ fn main() -> Result<()> {
     loop {
         select! {
             recv(term_rx) -> result => {
-                // IO error is unrecoverable, therefore just propagate it.
+                // IO error is unrecoverable, so just propagate it.
                 let event = result??;
                 term_handler.handle(event, &mut state);
             },

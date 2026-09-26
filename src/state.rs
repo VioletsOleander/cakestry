@@ -1,14 +1,21 @@
-mod buffer;
+pub mod buffer;
 mod exchange;
 
 use buffer::TextBuffer;
 use exchange::Exchange;
 
+#[derive(Default)]
 pub struct State {
     exchanges: Vec<Exchange>,
     prompt_buffer: TextBuffer,
     command_buffer: TextBuffer,
     scroll_offset: usize,
+}
+
+impl State {
+    pub fn set_scroll_offset(&mut self, scroll_offset: usize) {
+        self.scroll_offset = scroll_offset;
+    }
 }
 
 impl State {
@@ -19,15 +26,8 @@ impl State {
     pub fn command_buffer_mut(&mut self) -> &mut TextBuffer {
         &mut self.command_buffer
     }
-}
 
-impl Default for State {
-    fn default() -> Self {
-        State {
-            exchanges: Vec::default(),
-            prompt_buffer: TextBuffer::default(),
-            command_buffer: TextBuffer::default(),
-            scroll_offset: 0,
-        }
+    pub fn scroll_offset(&self) -> usize {
+        self.scroll_offset
     }
 }
