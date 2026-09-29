@@ -236,3 +236,17 @@ impl Foo {
     }
 }
 ```
+
+## Visibility
+
+For passive data structures which does not need to maintain any invariants inside, prefer use `pub` fields
+to avoid boilerplate getters and setters.
+
+Example:
+
+```rust
+struct Config {
+    pub foo: String,
+    pub bar: String,
+}
+```
