@@ -16,7 +16,9 @@ Example:
 # comment with non-captical letter should not end with a period
 ```
 
-## Import Order
+## Order
+
+### Import Order
 
 Write imports from std lib, external lib, parent or sibling modules first, and then declaration for
 sub modules, and then imports from sub modules.
@@ -39,7 +41,7 @@ mod submodule
 use submodule::baz;
 ```
 
-## Group Order
+### Group Order
 
 In each file, write code in groups, with the following order:
 
@@ -108,7 +110,7 @@ fn foo_function() {
 }
 ```
 
-## `Impl` Block Order
+### `Impl` Block Order
 
 Write normal `impl` block first, and trait `impl ... for` block after. Normal `impl` block can be
 viewed as the type's inherent behaviour, and trait `impl ... for` block can be treated as the type's
@@ -150,7 +152,7 @@ impl Foo {
 
 impl Foo {
     // getters here
-    pub fn bar(&self) -> &String {
+    pub fn bar(&self) -> &str {
         self.bar
     }
 }
@@ -206,3 +208,31 @@ any argument
 
 It is not necessary to write a `new` without any argument and just simply call `default` inside its
 method body.
+
+## Type
+
+### `&str` and `&String`
+
+Prefer `&str` over `&String` in function/method parameter type and return type, as `&str` is more
+versatile. Most of the time, we are interested at the sequence of characters instead of the `String`
+struct (unless we explicitly wants to know the capacity of the `String` struct).
+
+Example:
+
+```rust
+// `&str` as parameter type
+fn foo(content: &str) {
+    // function body
+}
+
+// `&str` as return type
+struct Foo {
+    content: String
+}
+
+impl Foo {
+    pub fn content(&self) -> &str {
+        self.content
+    }
+}
+```
