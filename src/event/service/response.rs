@@ -20,11 +20,11 @@ impl ResponseEventService {
         state: &State,
         sender: Sender<Result<ResponseStreamEvent, OpenAIError>>,
     ) -> Result<Self> {
-        let provider = state.active_provider();
+        let provider = &state.providers[state.provider_index];
 
         let openai_config = OpenAIConfig::default()
-            .with_api_key(provider.api_key())
-            .with_api_base(provider.base_url());
+            .with_api_key(provider.api_key.clone())
+            .with_api_base(provider.base_url.clone());
 
         let client = Client::with_config(openai_config);
         let runtime = Builder::new_multi_thread().enable_all().build()?;
@@ -36,12 +36,15 @@ impl ResponseEventService {
         })
     }
 
-    pub fn create_responses(&self, messages: Vec<EasyInputMessage>, model: String) -> Result<()> {
+    pub fn create_responses(&self, messages: Vec<EasyInputMessage>, model: String) {
+        // Here, `expect` is used because request build error implies code logic error
+        // and therefore is unrecoverable.
         let request = CreateResponseArgs::default()
             .model(model)
             .input(messages)
             .stream(true)
-            .build()?;
+            .build()
+            .expect("model and messages should be enough to make CreaseReponse");
 
         let client = self.client.clone();
         let sender = self.sender.clone();
@@ -64,7 +67,5 @@ impl ResponseEventService {
                 }
             }
         });
-
-        Ok(())
     }
 }

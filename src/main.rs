@@ -29,10 +29,11 @@ fn main() -> Result<()> {
     let (resp_tx, resp_rx) = bounded(16);
     let resp_service = ResponseEventService::build(&state, resp_tx)?;
 
-    let mut term_handler = TerminalEventHandler::new(resp_service);
+    let term_handler = TerminalEventHandler::new(resp_service);
 
     term_service.run(term_tx);
-    while !state.should_exit() {
+
+    while !state.should_exit {
         select! {
             recv(term_rx) -> result => {
                 // IO error is unrecoverable, so just propagate it.
