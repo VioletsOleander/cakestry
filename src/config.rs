@@ -5,8 +5,8 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
+    pub system_prompt: String,
     pub provider: String,
-    /// Providers of API service.
     pub providers: Vec<Provider>,
 }
 

@@ -3,6 +3,7 @@ use async_openai::types::responses::{
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind};
 
+use crate::command::CommandHandler;
 use crate::event::service::ResponseEventService;
 use crate::state::{Mode, State};
 
@@ -112,17 +113,16 @@ impl TerminalEventHandler {
     }
 
     fn try_submit_command(&self, state: &mut State) {
-        if let Some(command) = state.command_buffer.take_content() {}
+        if let Some(command) = state.command_buffer.take_content() {
+            CommandHandler::handle(command, state);
+        }
     }
 }
 
 fn make_messages(prompt: String, state: &State) -> Vec<EasyInputMessage> {
     let mut messages = Vec::with_capacity(2 * state.exchanges.len() + 2);
 
-    messages.push(make_message(
-        Role::System,
-        "You are a helpful assistant".to_string(),
-    ));
+    messages.push(make_message(Role::System, state.system_prompt.to_string()));
     for exchange in &state.exchanges {
         messages.push(make_message(Role::User, exchange.prompt.clone()));
         messages.push(make_message(Role::Assistant, exchange.response.clone()));
