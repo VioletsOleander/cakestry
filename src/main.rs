@@ -21,17 +21,18 @@ fn main() -> Result<()> {
 
     init_subscriber(args.log_path());
 
+    let mut state = State::build(config)?;
+
     let (term_tx, term_rx) = bounded(1);
     let term_service = TerminalEventService::build()?;
 
     let (resp_tx, resp_rx) = bounded(16);
-    let resp_service = ResponseEventService::build(&config, resp_tx)?;
+    let resp_service = ResponseEventService::build(&state, resp_tx)?;
 
-    let mut state = State::default();
     let mut term_handler = TerminalEventHandler::new(resp_service);
-    term_service.run(term_tx);
 
-    loop {
+    term_service.run(term_tx);
+    while !state.should_exit() {
         select! {
             recv(term_rx) -> result => {
                 // IO error is unrecoverable, so just propagate it.
@@ -41,11 +42,8 @@ fn main() -> Result<()> {
             recv(resp_rx) -> result => {
                 // let event = result?;
 
-
             }
         };
-
-        break;
     }
 
     Ok(())

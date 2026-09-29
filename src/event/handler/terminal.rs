@@ -1,98 +1,105 @@
+use anyhow::Result;
+use async_openai::types::responses::{
+    EasyInputContent, EasyInputMessage, EasyInputMessageArgs, Role,
+};
 use crossterm::event::{Event, KeyCode, KeyModifiers, MouseEventKind};
 
 use crate::event::service::ResponseEventService;
-use crate::state::State;
-use crate::state::buffer::{TextBuffer, TextBufferKind};
+use crate::state::{Mode, State};
 
 pub struct TerminalEventHandler {
     service: ResponseEventService,
-    wait_response: bool,
-    active_buffer_kind: TextBufferKind,
 }
 
 impl TerminalEventHandler {
     pub fn new(service: ResponseEventService) -> Self {
-        TerminalEventHandler {
-            service,
-            wait_response: false,
-            active_buffer_kind: TextBufferKind::Prompt,
-        }
+        TerminalEventHandler { service }
     }
 
     pub fn handle(&mut self, event: Event, state: &mut State) {
         match event {
             Event::Key(key) => match key.modifiers {
                 KeyModifiers::CONTROL => match key.code {
-                    // CTRL-Esc: Exit command mode, back to prompt mode.
-                    KeyCode::Esc => {
-                        if let TextBufferKind::Command = self.active_buffer_kind {
-                            self.active_buffer_kind = TextBufferKind::Prompt
-                        }
-                    }
                     // CTRL-c: Enter command mode.
-                    KeyCode::Char('c') => self.active_buffer_kind = TextBufferKind::Command,
+                    KeyCode::Char('c') => state.set_mode(Mode::Command),
                     // CTRL-j: Break current line.
-                    KeyCode::Char('j') => self.get_active_buffer(state).break_line(),
+                    KeyCode::Char('j') => state.active_buffer().break_line(),
                     // CTRL-w: Delete a word backward.
-                    KeyCode::Char('w') => self.get_active_buffer(state).delete_word_backward(),
+                    KeyCode::Char('w') => state.active_buffer().delete_word_backward(),
                     // CTRL-u: Delete a line backward.
-                    KeyCode::Char('u') => self.get_active_buffer(state).delete_line_backward(),
+                    KeyCode::Char('u') => state.active_buffer().delete_line_backward(),
                     _ => (),
                 },
-                KeyModifiers::SHIFT => match key.code {
-                    // SHIFT-Esc: Exit command mode, back to prompt mode.
-                    KeyCode::Esc => {
-                        if let TextBufferKind::Command = self.active_buffer_kind {
-                            self.active_buffer_kind = TextBufferKind::Prompt
-                        }
+                KeyModifiers::SHIFT => {
+                    if let KeyCode::Char(ch) = key.code {
+                        state.active_buffer().insert_char(ch)
                     }
-                    KeyCode::Char(ch) => self.get_active_buffer(state).insert_char(ch),
-                    _ => (),
-                },
+                }
                 KeyModifiers::NONE => match key.code {
                     // Esc: Exit command mode, back to prompt mode.
                     KeyCode::Esc => {
-                        if let TextBufferKind::Command = self.active_buffer_kind {
-                            self.active_buffer_kind = TextBufferKind::Prompt
+                        if let Mode::Command = state.mode() {
+                            state.set_mode(Mode::Prompt);
                         }
                     }
                     // Enter: Submit prompt or command.
-                    KeyCode::Enter => match self.active_buffer_kind {
-                        TextBufferKind::Prompt => {
-                            if self.wait_response || state.prompt_buffer_mut().is_empty() {
+                    KeyCode::Enter => match state.mode() {
+                        Mode::Prompt => self.try_submit_prompt(state),
+                        Mode::Command => {
+                            let buffer = state.active_buffer();
+                            if buffer.is_empty() {
                                 return;
                             }
-
-                            todo!();
                         }
-                        TextBufferKind::Command => (),
                     },
-                    KeyCode::Char(ch) => self.get_active_buffer(state).insert_char(ch),
-                    KeyCode::Delete => self.get_active_buffer(state).delete_char(),
-                    KeyCode::Backspace => self.get_active_buffer(state).delete_prev_char(),
-                    KeyCode::Left => self.get_active_buffer(state).move_cursor_left(),
-                    KeyCode::Right => self.get_active_buffer(state).move_cursor_right(),
+                    KeyCode::Char(ch) => state.active_buffer().insert_char(ch),
+                    KeyCode::Delete => state.active_buffer().delete_char(),
+                    KeyCode::Backspace => state.active_buffer().delete_prev_char(),
+                    KeyCode::Left => state.active_buffer().move_cursor_left(),
+                    KeyCode::Right => state.active_buffer().move_cursor_right(),
                     _ => (),
                 },
                 _ => (),
             },
             Event::Mouse(mouse) => match mouse.kind {
-                MouseEventKind::ScrollUp => {
-                    state.set_scroll_offset(state.scroll_offset().saturating_add(1));
-                }
-                MouseEventKind::ScrollDown => {
-                    state.set_scroll_offset(state.scroll_offset().saturating_sub(1));
-                }
+                MouseEventKind::ScrollUp => state.increment_scroll_offset(),
+                MouseEventKind::ScrollDown => state.decrement_scroll_offset(),
                 _ => (),
             },
             _ => (),
         }
     }
 
-    fn get_active_buffer<'a>(&self, state: &'a mut State) -> &'a mut TextBuffer {
-        match self.active_buffer_kind {
-            TextBufferKind::Prompt => state.prompt_buffer_mut(),
-            TextBufferKind::Command => state.command_buffer_mut(),
+    fn try_submit_prompt(&self, state: &mut State) {
+        if state.awaiting_response() {
+            return;
+        }
+
+        let buffer = state.prompt_buffer_mut();
+        if let Some(content) = buffer.take_content() {
+            let exchanges = state.exchanges_mut();
+            // Each exchange 2 message + 1 system prompt + 1 user input.
+            let mut messages = Vec::with_capacity(2 * exchanges.len() + 2);
+
+            messages.push(make_message(
+                Role::System,
+                "You are a helpful assistant".to_string(),
+            ));
+            for exchange in exchanges {
+                messages.push(make_message(Role::User, exchange.query().to_string()));
+                messages.push(make_message(Role::Assistant, exchange.reply().to_string()));
+            }
+            messages.push(make_message(Role::User, content));
         }
     }
+}
+
+fn make_message(role: Role, content: String) -> EasyInputMessage {
+    // Here, `expect` is used because message build error implies code logic error
+    // and therefore is unrecoverable.
+    EasyInputMessageArgs::default()
+        .role(role)
+        .content(EasyInputContent::Text(content))
+        .build()
+        .expect("role and content should be enough to make EasyInputMessage.")
 }

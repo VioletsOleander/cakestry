@@ -18,18 +18,16 @@ impl Config {
         toml::from_str(&content).context("failed to parse config content")
     }
 
-    pub fn find_provider(&self, name: &str) -> Option<&Provider> {
-        self.providers
-            .iter()
-            .find(|&provider| provider.name == name)
-    }
-
     pub fn provider(&self) -> &str {
         &self.provider
     }
+
+    pub fn providers(&self) -> &[Provider] {
+        &self.providers
+    }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Provider {
     /// Example: "DeepSeek".
     name: String,

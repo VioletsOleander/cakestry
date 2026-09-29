@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use async_openai::Client;
 use async_openai::config::OpenAIConfig;
 use async_openai::error::OpenAIError;
@@ -7,10 +7,9 @@ use crossbeam_channel::Sender;
 use futures::stream::StreamExt;
 use tokio::runtime::{Builder, Runtime};
 
-use crate::config::Config;
+use crate::state::State;
 
 pub struct ResponseEventService {
-    model: String,
     client: Client<OpenAIConfig>,
     sender: Sender<Result<ResponseStreamEvent, OpenAIError>>,
     runtime: Runtime,
@@ -18,35 +17,28 @@ pub struct ResponseEventService {
 
 impl ResponseEventService {
     pub fn build(
-        config: &Config,
+        state: &State,
         sender: Sender<Result<ResponseStreamEvent, OpenAIError>>,
     ) -> Result<Self> {
-        let provider = config.find_provider(config.provider()).ok_or_else(|| {
-            anyhow!(
-                "failed to find configuration of provider '{}'",
-                config.provider()
-            )
-        })?;
+        let provider = state.active_provider();
 
         let openai_config = OpenAIConfig::default()
             .with_api_key(provider.api_key())
             .with_api_base(provider.base_url());
 
         let client = Client::with_config(openai_config);
-        let model = provider.model().to_string();
         let runtime = Builder::new_multi_thread().enable_all().build()?;
 
-        Ok(ResponseEventService {
-            model,
+        Ok(Self {
             client,
             sender,
             runtime,
         })
     }
 
-    pub fn create_responses(&self, messages: Vec<EasyInputMessage>) -> Result<()> {
+    pub fn create_responses(&self, messages: Vec<EasyInputMessage>, model: String) -> Result<()> {
         let request = CreateResponseArgs::default()
-            .model(&self.model)
+            .model(model)
             .input(messages)
             .stream(true)
             .build()?;
@@ -74,9 +66,5 @@ impl ResponseEventService {
         });
 
         Ok(())
-    }
-
-    pub fn model(&self) -> &str {
-        &self.model
     }
 }

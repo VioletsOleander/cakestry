@@ -1,8 +1,3 @@
-pub enum TextBufferKind {
-    Prompt,
-    Command,
-}
-
 pub struct TextBuffer {
     lines: Vec<String>,
     /// Index of current line.
@@ -146,7 +141,23 @@ impl TextBuffer {
     }
 }
 
+// Normal methods.
 impl TextBuffer {
+    /// Clear and return the buffer content, or return `None` if buffer is empty.
+    pub fn take_content(&mut self) -> Option<String> {
+        if !self.is_empty() {
+            let content = self.lines.join("\n");
+
+            self.lines.clear();
+            self.cursor_line = 0;
+            self.cursor_char = 0;
+
+            Some(content)
+        } else {
+            None
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.lines.len() == 1 && self.lines[0].len() == 0
     }
@@ -169,7 +180,7 @@ impl TextBuffer {
 
 impl Default for TextBuffer {
     fn default() -> Self {
-        TextBuffer {
+        Self {
             // At least keep one empty line, zero line is not allowed.
             lines: vec![String::new()],
             cursor_line: 0,
