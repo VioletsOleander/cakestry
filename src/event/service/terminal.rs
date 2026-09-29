@@ -24,7 +24,7 @@ impl TerminalEventService {
         Ok(TerminalEventService)
     }
 
-    pub fn run(&self, sender: Sender<Result<Event, io::Error>>) -> Result<()> {
+    pub fn run(&self, sender: Sender<Result<Event, io::Error>>) {
         thread::spawn(move || {
             loop {
                 let result = read();
@@ -41,8 +41,6 @@ impl TerminalEventService {
                 }
             }
         });
-
-        Ok(())
     }
 }
 
