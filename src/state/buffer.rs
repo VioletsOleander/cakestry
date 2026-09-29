@@ -148,7 +148,7 @@ impl TextBuffer {
         if !self.is_empty() {
             let content = self.lines.join("\n");
 
-            self.lines.clear();
+            self.lines = vec![String::new()];
             self.cursor_line = 0;
             self.cursor_char = 0;
 

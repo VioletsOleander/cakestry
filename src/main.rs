@@ -5,6 +5,7 @@ use tracing_appender::rolling;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 mod arg;
+mod command;
 mod config;
 mod event;
 mod state;
@@ -36,7 +37,9 @@ fn main() -> Result<()> {
     while !state.should_exit {
         select! {
             recv(term_rx) -> result => {
-                // IO error is unrecoverable, so just propagate it.
+                // The first error is RecvError, which is unrecoverable.
+                // The second error is IOError, whicch is unrecoverable too.
+                // Therefore they are both propagated.
                 let event = result??;
                 term_handler.handle(event, &mut state);
             },

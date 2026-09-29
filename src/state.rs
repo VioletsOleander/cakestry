@@ -17,6 +17,7 @@ pub enum Mode {
 pub struct State {
     // Render.
     pub exchanges: Vec<Exchange>,
+    pub notification: String,
     pub scroll_offset: usize,
 
     // Buffer.
@@ -24,6 +25,7 @@ pub struct State {
     pub command_buffer: TextBuffer,
 
     // Provider.
+    pub system_prompt: String,
     pub providers: Vec<Provider>,
     pub provider_index: usize,
 
@@ -48,12 +50,14 @@ impl State {
 
         Ok(Self {
             exchanges: Vec::default(),
+            notification: String::new(),
             scroll_offset: 0,
             prompt_buffer: TextBuffer::default(),
             command_buffer: TextBuffer::default(),
             providers: config.providers,
             provider_index,
             mode: Mode::Prompt,
+            system_prompt: config.system_prompt,
             awaiting_response: false,
             should_exit: false,
         })
