@@ -57,7 +57,7 @@ fn restore() {
     // Disabling raw mode first as it has more side effects than leaving the alternate screen buffer.
     if let Err(err) = disable_raw_mode() {
         tracing::error!("failed to disable raw mode, error {err} encountered");
-        // Try write once, not forcing to empty the buffer, since the IO error is unkonwn.
+        // Try write once, not forcing to empty the buffer, since the IO error is unknown.
         let _ = stderr().write("failed to disable raw mode, error {err} encountered\n".as_bytes());
     }
 

@@ -54,9 +54,9 @@ impl TextBuffer {
                 self.cursor_char -= 1;
 
                 // UTF-8 continuation bytes ranges in [0x80, 0xBF], i.e. [1000_0000, 1011_1111].
-                // Intepreted as i8, continuation bytes' range is [-128, -65],
+                // Interpreted as i8, continuation bytes' range is [-128, -65],
                 // and boundary bytes' range is [-64 (-0x40), 128].
-                // Therefore this operation is equvalent to (byte < 0x7F || byte >= 0xC0).
+                // Therefore this operation is equivalent to (byte < 0x7F || byte >= 0xC0).
                 if (bytes[self.cursor_char] as i8) >= -0x40 {
                     break;
                 }
@@ -118,11 +118,11 @@ impl TextBuffer {
             }
         }
 
-        // Next try finding left nearest whitspace character, i.e. last word's begin.
+        // Next try finding left nearest whitespace character, i.e. last word's begin.
         while idx > 0 {
             idx -= 1;
             if matches!(bytes[idx], b'\t' | b' ') {
-                // The delete range starts from the character after the whitspace.
+                // The delete range starts from the character after the whitespace.
                 idx += 1;
                 break;
             }
@@ -134,7 +134,7 @@ impl TextBuffer {
 
     /// Delete the line (prefix) before the cursor.
     ///
-    /// Thie behaviour aligns with i_CTRL-U in vim.
+    /// The behaviour aligns with i_CTRL-U in vim.
     pub fn delete_line_backward(&mut self) {
         self.lines[self.cursor_char].drain(0..self.cursor_char);
         self.cursor_char = 0;
@@ -410,7 +410,7 @@ mod test {
     }
 
     #[test]
-    fn delete_word_backward_with_prefix_whitspace() {
+    fn delete_word_backward_with_prefix_whitespace() {
         let line = " Hello";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
