@@ -5,9 +5,9 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
-    provider: String,
+    pub provider: String,
     /// Providers of API service.
-    providers: Vec<Provider>,
+    pub providers: Vec<Provider>,
 }
 
 impl Config {
@@ -17,42 +17,16 @@ impl Config {
 
         toml::from_str(&content).context("failed to parse config content")
     }
-
-    pub fn provider(&self) -> &str {
-        &self.provider
-    }
-
-    pub fn providers(&self) -> &[Provider] {
-        &self.providers
-    }
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Provider {
     /// Example: "DeepSeek".
-    name: String,
+    pub name: String,
     /// Example: "deepkseek-v4-flash"
-    model: String,
+    pub model: String,
     /// Example: "https://api.deepseek.com"
-    base_url: String,
+    pub base_url: String,
     /// Example: "sk-xxx", TODO: use keyring to makes this as secret.
-    api_key: String,
-}
-
-impl Provider {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn model(&self) -> &str {
-        &self.model
-    }
-
-    pub fn base_url(&self) -> &str {
-        &self.base_url
-    }
-
-    pub fn api_key(&self) -> &str {
-        &self.api_key
-    }
+    pub api_key: String,
 }
