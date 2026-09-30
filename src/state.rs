@@ -3,10 +3,8 @@ use anyhow::{Result, anyhow};
 use crate::config::{Config, Provider};
 
 pub mod buffer;
-pub mod exchange;
 
 use buffer::TextBuffer;
-use exchange::Exchange;
 
 #[derive(Clone, Copy)]
 pub enum Mode {
@@ -35,6 +33,11 @@ pub struct State {
     pub should_exit: bool,
 }
 
+pub struct Exchange {
+    pub prompt: String,
+    pub response: String,
+}
+
 impl State {
     pub fn build(config: Config) -> Result<Self> {
         let provider_index = config
@@ -61,5 +64,11 @@ impl State {
             awaiting_response: false,
             should_exit: false,
         })
+    }
+}
+
+impl Exchange {
+    pub fn new(prompt: String, response: String) -> Self {
+        Self { prompt, response }
     }
 }

@@ -1,8 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
 use crossbeam_channel::{bounded, select};
-use tracing_appender::rolling;
-use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 mod arg;
 mod command;
@@ -12,7 +10,7 @@ mod state;
 
 use arg::Args;
 use config::Config;
-use event::handler::TerminalEventHandler;
+use event::handler::{ResponseEventHandler, TerminalEventHandler};
 use event::service::{ResponseEventService, TerminalEventService};
 use state::State;
 
@@ -31,21 +29,20 @@ fn main() -> Result<()> {
     let resp_service = ResponseEventService::build(&state, resp_tx)?;
 
     let term_handler = TerminalEventHandler::new(resp_service);
+    let resp_handler = ResponseEventHandler::new();
 
     term_service.run(term_tx);
 
     while !state.should_exit {
         select! {
             recv(term_rx) -> result => {
-                // The first error is RecvError, which is unrecoverable.
-                // The second error is IOError, whicch is unrecoverable too.
-                // Therefore they are both propagated.
+                // The second error is io::Error, which is unrecoverable.
                 let event = result??;
                 term_handler.handle(event, &mut state);
             },
             recv(resp_rx) -> result => {
-                // let event = result?;
-
+                let event = result?;
+                resp_handler.handle(event, &mut state);
             }
         };
     }
@@ -55,9 +52,10 @@ fn main() -> Result<()> {
 
 /// Initialize the default global tracing subscriber.
 fn init_subscriber(log_path: &str) {
-    let appender = rolling::never(".", log_path);
-    FmtSubscriber::builder()
-        .with_env_filter(EnvFilter::from_env("CAKESTRY_LOG"))
+    let appender = tracing_appender::rolling::never(".", log_path);
+
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_env("CAKESTRY_LOG"))
         .with_ansi(false)
         .with_writer(appender)
         .init();
