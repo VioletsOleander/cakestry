@@ -5,7 +5,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind};
 
 use crate::command::CommandHandler;
 use crate::event::service::ResponseEventService;
-use crate::state::{Mode, State};
+use crate::state::{Exchange, Mode, State};
 
 pub struct TerminalEventHandler {
     service: ResponseEventService,
@@ -13,7 +13,7 @@ pub struct TerminalEventHandler {
 
 impl TerminalEventHandler {
     pub fn new(service: ResponseEventService) -> Self {
-        TerminalEventHandler { service }
+        Self { service }
     }
 
     pub fn handle(&self, event: Event, state: &mut State) {
@@ -104,11 +104,13 @@ impl TerminalEventHandler {
         if !state.awaiting_response
             && let Some(prompt) = state.prompt_buffer.take_content()
         {
-            let messages = make_messages(prompt, state);
+            let messages = make_messages(prompt.clone(), state);
             let model = state.providers[state.provider_index].model.clone();
 
             self.service.create_responses(messages, model);
-            state.awaiting_response = true
+
+            state.awaiting_response = true;
+            state.exchanges.push(Exchange::new(prompt, String::new()));
         }
     }
 
