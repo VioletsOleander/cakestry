@@ -24,11 +24,11 @@ impl TerminalEventHandler {
             },
             Event::Mouse(mouse) => match mouse.kind {
                 MouseEventKind::ScrollUp => {
-                    state.scroll_offset = state.scroll_offset.saturating_sub(1);
+                    state.stream_scroll = state.stream_scroll.saturating_sub(1);
                 }
 
                 MouseEventKind::ScrollDown => {
-                    state.scroll_offset = state.scroll_offset.saturating_add(1);
+                    state.stream_scroll = state.stream_scroll.saturating_add(1);
                 }
                 _ => (),
             },
