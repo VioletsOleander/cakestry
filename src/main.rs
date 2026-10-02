@@ -1,26 +1,40 @@
 use anyhow::Result;
 use clap::Parser;
+use clap::builder::Styles;
 use crossbeam_channel::{bounded, select};
 
-mod arg;
 mod command;
 mod config;
 mod event;
 mod state;
+mod tui;
 
-use arg::Args;
 use config::Config;
 use event::handler::{ResponseEventHandler, TerminalEventHandler};
 use event::service::{ResponseEventService, TerminalEventService};
 use state::State;
+use tui::Tui;
+
+#[derive(Parser)]
+#[command(version, about)]
+#[command(styles = Styles::default())]
+struct Args {
+    /// Relative path to the config file.
+    #[arg(long, default_value = ".cakestry/config.toml")]
+    config_path: String,
+    /// Relative path to the log file.
+    #[arg(long, default_value = "cakestry.log")]
+    log_path: String,
+}
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let config = Config::from_file(args.config_path())?;
+    let config = Config::from_file(&args.config_path)?;
 
-    init_subscriber(args.log_path());
+    init_subscriber(&args.log_path);
 
     let mut state = State::build(config)?;
+    let mut tui = Tui::build()?;
 
     let (term_tx, term_rx) = bounded(1);
     let term_service = TerminalEventService::build()?;
@@ -34,6 +48,8 @@ fn main() -> Result<()> {
     term_service.run(term_tx);
 
     while !state.should_exit {
+        tui.render(&state)?;
+
         select! {
             recv(term_rx) -> result => {
                 // The second error is io::Error, which is unrecoverable.

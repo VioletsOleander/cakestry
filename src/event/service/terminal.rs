@@ -1,5 +1,5 @@
 use std::io::{self, Write, stderr, stdout};
-use std::panic;
+use std::panic::{set_hook, take_hook};
 use std::thread;
 
 use anyhow::Result;
@@ -15,8 +15,8 @@ impl TerminalEventService {
         enable_raw_mode()?;
         execute!(stdout(), EnableMouseCapture)?;
 
-        let current_hook = panic::take_hook();
-        panic::set_hook(Box::new(move |info| {
+        let current_hook = take_hook();
+        set_hook(Box::new(move |info| {
             restore();
             current_hook(info);
         }));
@@ -54,7 +54,6 @@ fn restore() {
     // Panic should be avoided in a panic hook, and in drop:
     // https://stackoverflow.com/questions/73467248/what-happens-when-a-panic-hook-panics
 
-    // Disabling raw mode first as it has more side effects than leaving the alternate screen buffer.
     if let Err(err) = disable_raw_mode() {
         tracing::error!("failed to disable raw mode, error {err} encountered");
         // Try write once, not forcing to empty the buffer, since the IO error is unknown.

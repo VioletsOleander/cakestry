@@ -16,7 +16,7 @@ pub struct State {
     // Render.
     pub exchanges: Vec<Exchange>,
     pub notification: String,
-    pub scroll_offset: usize,
+    pub stream_scroll: usize,
 
     // Buffer.
     pub prompt_buffer: TextBuffer,
@@ -54,7 +54,7 @@ impl State {
         Ok(Self {
             exchanges: Vec::default(),
             notification: String::new(),
-            scroll_offset: 0,
+            stream_scroll: 0,
             prompt_buffer: TextBuffer::default(),
             command_buffer: TextBuffer::default(),
             providers: config.providers,

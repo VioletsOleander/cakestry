@@ -158,6 +158,15 @@ impl TextBuffer {
         }
     }
 
+    /// Return the buffer content, or return `None` is buffer is empty.
+    pub fn content(&self) -> Option<String> {
+        if !self.is_empty() {
+            Some(self.lines.join("\n"))
+        } else {
+            None
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.lines.len() == 1 && self.lines[0].len() == 0
     }
