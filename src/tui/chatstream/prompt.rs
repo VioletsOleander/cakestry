@@ -18,10 +18,10 @@ impl<'a> PromptView<'a> {
         let prefix_width = 2;
 
         match width.checked_sub(prefix_width) {
-            Some(prompt_width) => Ok(Self {
+            Some(text_width) => Ok(Self {
                 lines: prompt
                     .lines()
-                    .flat_map(|line| wrap_line(line, prompt_width))
+                    .flat_map(|line| wrap_line(line, text_width))
                     .collect(),
                 scroll: 0,
             }),

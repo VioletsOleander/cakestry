@@ -12,13 +12,14 @@ mod prompt;
 mod response;
 mod spacer;
 
+use buffer::BufferView;
 use prompt::PromptView;
 use response::ResponseView;
 use spacer::Spacer;
 
 pub struct ChatStream;
 
-/// Range in absolute y coordinates.
+/// Range in absolute y coordinates, with inclusive start and exclusive end.
 struct Range {
     start: usize,
     end: usize,
@@ -64,6 +65,16 @@ impl ChatStream {
                 let area = area.offset(Offset::new(0, (visible.start - viewport.start) as i32));
                 Spacer::render(area, frame);
             }
+        }
+
+        if let Ok(buffer) = BufferView::build(&state.prompt_buffer, area.width as usize)
+            && let Some(visible) =
+                get_visible_range(&viewport, widget.proceed().extend(buffer.height()))
+        {
+            let scroll = (visible.start - widget.start) as u16;
+            let area = area.offset(Offset::new(0, (visible.start - viewport.start) as i32));
+
+            buffer.scroll(scroll).render(area, frame);
         }
     }
 }

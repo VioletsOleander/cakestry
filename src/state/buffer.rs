@@ -1,68 +1,73 @@
 pub struct TextBuffer {
     lines: Vec<String>,
+    cursor: Cursor,
+}
+
+#[derive(Default, Clone, Copy)]
+pub struct Cursor {
     /// Index of current line.
-    cursor_line: usize,
+    pub line: usize,
     /// Index of start byte of current char.
-    cursor_char: usize,
+    pub char: usize,
 }
 
 // Regular keyboard actions.
 impl TextBuffer {
     /// Insert `ch` at cursor.
     pub fn insert_char(&mut self, ch: char) {
-        self.lines[self.cursor_line].insert(self.cursor_char, ch);
-        self.cursor_char += ch.len_utf8();
+        self.lines[self.cursor.line].insert(self.cursor.char, ch);
+        self.cursor.char += ch.len_utf8();
     }
 
     /// Delete the character at cursor.
     pub fn delete_char(&mut self) {
         // If in the line end, join the next line.
-        if self.cursor_char == self.lines[self.cursor_line].len() {
+        if self.cursor.char == self.lines[self.cursor.line].len() {
             // If in the last line, nothing to join.
-            if self.cursor_line == self.lines.len() - 1 {
+            if self.cursor.line == self.lines.len() - 1 {
                 return;
             }
 
-            let next_line = self.lines.remove(self.cursor_line + 1);
-            self.lines[self.cursor_line].push_str(&next_line);
+            let next_line = self.lines.remove(self.cursor.line + 1);
+            self.lines[self.cursor.line].push_str(&next_line);
         } else {
-            self.lines[self.cursor_line].remove(self.cursor_char);
+            self.lines[self.cursor.line].remove(self.cursor.char);
         }
     }
 
     /// Delete the character before cursor.
     pub fn delete_prev_char(&mut self) {
         // If in the line start, join to the previous line.
-        if self.cursor_char == 0 {
+        if self.cursor.char == 0 {
             // If in the first line, nothing to join to.
-            if self.cursor_line == 0 {
+            if self.cursor.line == 0 {
                 return;
             }
 
-            let prev_cursor_line = self.cursor_line - 1;
+            let prev_cursor_line = self.cursor.line - 1;
             let prev_cursor_char = self.lines[prev_cursor_line].len();
-            let curr_line = self.lines.remove(self.cursor_line);
+            let curr_line = self.lines.remove(self.cursor.line);
 
             self.lines[prev_cursor_line].push_str(&curr_line);
-            self.cursor_line = prev_cursor_line;
-            self.cursor_char = prev_cursor_char;
+            self.cursor.line = prev_cursor_line;
+            self.cursor.char = prev_cursor_char;
         } else {
-            let bytes = self.lines[self.cursor_line].as_bytes();
+            let bytes = self.lines[self.cursor.line].as_bytes();
 
             // The number of backward steps should at most be 3 by the design of UTF-8.
             loop {
-                self.cursor_char -= 1;
+                self.cursor.char -= 1;
 
                 // UTF-8 continuation bytes ranges in [0x80, 0xBF], i.e. [1000_0000, 1011_1111].
                 // Interpreted as i8, continuation bytes' range is [-128, -65],
                 // and boundary bytes' range is [-64 (-0x40), 128].
                 // Therefore this operation is equivalent to (byte < 0x7F || byte >= 0xC0).
-                if (bytes[self.cursor_char] as i8) >= -0x40 {
+                if (bytes[self.cursor.char] as i8) >= -0x40 {
                     break;
                 }
             }
 
-            self.lines[self.cursor_line].remove(self.cursor_char);
+            self.lines[self.cursor.line].remove(self.cursor.char);
         }
     }
 }
@@ -71,21 +76,21 @@ impl TextBuffer {
 impl TextBuffer {
     /// Move the cursor left by one character.
     pub fn move_cursor_left(&mut self) {
-        if let Some(ch) = self.lines[self.cursor_line][..self.cursor_char]
+        if let Some(ch) = self.lines[self.cursor.line][..self.cursor.char]
             .chars()
             .next_back()
         {
-            self.cursor_char -= ch.len_utf8()
+            self.cursor.char -= ch.len_utf8()
         }
     }
 
     /// Move the cursor right by one character.
     pub fn move_cursor_right(&mut self) {
-        if let Some(ch) = self.lines[self.cursor_line][self.cursor_char..]
+        if let Some(ch) = self.lines[self.cursor.line][self.cursor.char..]
             .chars()
             .next()
         {
-            self.cursor_char += ch.len_utf8()
+            self.cursor.char += ch.len_utf8()
         }
     }
 }
@@ -96,21 +101,21 @@ impl TextBuffer {
     ///
     /// The behaviour aligns with i_<CR>/i_CTRL-M in vim.
     pub fn break_line(&mut self) {
-        let suffix = self.lines[self.cursor_line].split_off(self.cursor_char);
+        let suffix = self.lines[self.cursor.line].split_off(self.cursor.char);
 
-        self.cursor_line += 1;
-        self.cursor_char = 0;
-        self.lines.insert(self.cursor_line, suffix);
+        self.cursor.line += 1;
+        self.cursor.char = 0;
+        self.lines.insert(self.cursor.line, suffix);
     }
 
     /// Delete the word (prefix) before the cursor.
     ///
     /// The behaviour aligns with i_CTRL-W in vim.
     pub fn delete_word_backward(&mut self) {
-        let bytes = self.lines[self.cursor_line].as_bytes();
+        let bytes = self.lines[self.cursor.line].as_bytes();
 
         // First try finding left nearest non-whitespace character, i.e. last word's end.
-        let mut idx = self.cursor_char;
+        let mut idx = self.cursor.char;
         while idx > 0 {
             idx -= 1;
             if !matches!(bytes[idx], b'\t' | b' ') {
@@ -128,16 +133,16 @@ impl TextBuffer {
             }
         }
 
-        self.lines[self.cursor_line].drain(idx..self.cursor_char);
-        self.cursor_char = idx;
+        self.lines[self.cursor.line].drain(idx..self.cursor.char);
+        self.cursor.char = idx;
     }
 
     /// Delete the line (prefix) before the cursor.
     ///
     /// The behaviour aligns with i_CTRL-U in vim.
     pub fn delete_line_backward(&mut self) {
-        self.lines[self.cursor_char].drain(0..self.cursor_char);
-        self.cursor_char = 0;
+        self.lines[self.cursor.char].drain(0..self.cursor.char);
+        self.cursor.char = 0;
     }
 }
 
@@ -149,8 +154,8 @@ impl TextBuffer {
             let content = self.lines.join("\n");
 
             self.lines = vec![String::new()];
-            self.cursor_line = 0;
-            self.cursor_char = 0;
+            self.cursor.line = 0;
+            self.cursor.char = 0;
 
             Some(content)
         } else {
@@ -178,12 +183,8 @@ impl TextBuffer {
         &self.lines
     }
 
-    pub fn cursor_line(&self) -> usize {
-        self.cursor_line
-    }
-
-    pub fn cursor_char(&self) -> usize {
-        self.cursor_char
+    pub fn cursor(&self) -> Cursor {
+        self.cursor
     }
 }
 
@@ -192,9 +193,14 @@ impl Default for TextBuffer {
         Self {
             // At least keep one empty line, zero line is not allowed.
             lines: vec![String::new()],
-            cursor_line: 0,
-            cursor_char: 0,
+            cursor: Cursor::default(),
         }
+    }
+}
+
+impl Cursor {
+    pub fn new(line: usize, char: usize) -> Self {
+        Self { line, char }
     }
 }
 
@@ -207,16 +213,15 @@ mod test {
         let line = "Hello world";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: "Hello worl".len(),
+            cursor: Cursor::new(0, "Hello worl".len()),
         };
 
         buffer.delete_char();
 
         assert_eq!(buffer.lines.len(), 1);
         assert_eq!(buffer.lines[0], "Hello worl");
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, "Hello worl".len());
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, "Hello worl".len());
     }
 
     #[test]
@@ -225,16 +230,15 @@ mod test {
         let line1 = "rld";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line0), String::from(line1)]),
-            cursor_line: 0,
-            cursor_char: line0.len(),
+            cursor: Cursor::new(0, line0.len()),
         };
 
         buffer.delete_char();
 
         assert_eq!(buffer.lines.len(), 1);
         assert_eq!(buffer.lines[0], "Hello world");
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, line0.len());
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, line0.len());
     }
 
     #[test]
@@ -242,16 +246,15 @@ mod test {
         let line = "Hello world";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: line.len(),
+            cursor: Cursor::new(0, line.len()),
         };
 
         buffer.delete_prev_char();
 
         assert_eq!(buffer.lines.len(), 1);
         assert_eq!(buffer.lines[0], "Hello worl");
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, "Hello worl".len());
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, "Hello worl".len());
     }
 
     #[test]
@@ -260,16 +263,15 @@ mod test {
         let line1 = "rld";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line0), String::from(line1)]),
-            cursor_line: 1,
-            cursor_char: 0,
+            cursor: Cursor::new(1, 0),
         };
 
         buffer.delete_prev_char();
 
         assert_eq!(buffer.lines.len(), 1);
         assert_eq!(buffer.lines[0], "Hello world");
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, line0.len());
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, line0.len());
     }
 
     #[test]
@@ -277,14 +279,13 @@ mod test {
         let line = "Hello world";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: line.len(),
+            cursor: Cursor::new(0, line.len()),
         };
 
         buffer.move_cursor_left();
 
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, "Hello worl".len());
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, "Hello worl".len());
     }
 
     #[test]
@@ -292,14 +293,13 @@ mod test {
         let line = "Hello world";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: 0,
+            cursor: Cursor::default(),
         };
 
         buffer.move_cursor_left();
 
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, 0);
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, 0);
     }
 
     #[test]
@@ -307,14 +307,13 @@ mod test {
         let line = "Hello world";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: 0,
+            cursor: Cursor::default(),
         };
 
         buffer.move_cursor_right();
 
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, "H".len());
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, "H".len());
     }
 
     #[test]
@@ -322,14 +321,13 @@ mod test {
         let line = "Hello world";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: line.len(),
+            cursor: Cursor::new(0, line.len()),
         };
 
         buffer.move_cursor_right();
 
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, line.len());
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, line.len());
     }
 
     #[test]
@@ -337,8 +335,7 @@ mod test {
         let line = "Hello world";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: "Hello worl".len(),
+            cursor: Cursor::new(0, "Hello worl".len()),
         };
 
         buffer.break_line();
@@ -346,8 +343,8 @@ mod test {
         assert_eq!(buffer.lines.len(), 2);
         assert_eq!(buffer.lines[0], "Hello worl");
         assert_eq!(buffer.lines[1], "d");
-        assert_eq!(buffer.cursor_line, 1);
-        assert_eq!(buffer.cursor_char, 0);
+        assert_eq!(buffer.cursor.line, 1);
+        assert_eq!(buffer.cursor.char, 0);
     }
 
     #[test]
@@ -355,16 +352,15 @@ mod test {
         let line = "Hello world";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: line.len(),
+            cursor: Cursor::new(0, line.len()),
         };
 
         buffer.delete_word_backward();
 
         assert_eq!(buffer.lines.len(), 1);
         assert_eq!(buffer.lines[0], "Hello ");
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, "Hello ".len());
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, "Hello ".len());
     }
 
     #[test]
@@ -372,16 +368,15 @@ mod test {
         let line = "Hello world";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: "Hello worl".len(),
+            cursor: Cursor::new(0, "Hello worl".len()),
         };
 
         buffer.delete_word_backward();
 
         assert_eq!(buffer.lines.len(), 1);
         assert_eq!(buffer.lines[0], "Hello d");
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, "Hello ".len());
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, "Hello ".len());
     }
 
     #[test]
@@ -389,16 +384,15 @@ mod test {
         let line = "Hello world";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: "Hello ".len(),
+            cursor: Cursor::new(0, "Hello ".len()),
         };
 
         buffer.delete_word_backward();
 
         assert_eq!(buffer.lines.len(), 1);
         assert_eq!(buffer.lines[0], "world");
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, 0);
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, 0);
     }
 
     #[test]
@@ -406,16 +400,15 @@ mod test {
         let line = "Hello";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: line.len(),
+            cursor: Cursor::new(0, line.len()),
         };
 
         buffer.delete_word_backward();
 
         assert_eq!(buffer.lines.len(), 1);
         assert_eq!(buffer.lines[0], "");
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, 0);
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, 0);
     }
 
     #[test]
@@ -423,15 +416,14 @@ mod test {
         let line = " Hello";
         let mut buffer = TextBuffer {
             lines: Vec::from([String::from(line)]),
-            cursor_line: 0,
-            cursor_char: line.len(),
+            cursor: Cursor::new(0, line.len()),
         };
 
         buffer.delete_word_backward();
 
         assert_eq!(buffer.lines.len(), 1);
         assert_eq!(buffer.lines[0], " ");
-        assert_eq!(buffer.cursor_line, 0);
-        assert_eq!(buffer.cursor_char, 1);
+        assert_eq!(buffer.cursor.line, 0);
+        assert_eq!(buffer.cursor.char, 1);
     }
 }
