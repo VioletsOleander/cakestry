@@ -49,10 +49,10 @@ impl<'a> Widget for Prompt<'a> {
                 .spacing(1)
                 .areas(area);
 
-        for i in self.scroll..spans_area.height {
+        for i in 0..spans_area.height {
             let span_area = Rect::new(spans_area.x, spans_area.y + i, spans_area.width, 1);
 
-            if i == 0 {
+            if i == 0 && self.scroll == 0 {
                 Span::styled(">", Style::default().fg(Color::Blue))
                     .render(span_area, frame.buffer_mut());
             } else {

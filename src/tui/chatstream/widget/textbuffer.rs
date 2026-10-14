@@ -90,10 +90,10 @@ impl<'a> Widget for TextBuffer<'a> {
                 .spacing(1)
                 .areas(area);
 
-        for i in self.scroll..spans_area.height {
+        for i in 0..spans_area.height {
             let span_area = Rect::new(spans_area.x, spans_area.y + i, spans_area.width, 1);
 
-            if i == 0 {
+            if i == 0 && self.scroll == 0 {
                 Span::styled(">", Style::default().fg(Color::Green))
                     .render(span_area, frame.buffer_mut());
             } else {
@@ -106,11 +106,13 @@ impl<'a> Widget for TextBuffer<'a> {
             .scroll((self.scroll, 0))
             .render(paragraph_area, frame.buffer_mut());
 
-        // Notice that x is horizontal, y is vertical.
-        let cursor_position = (
-            area.x + 2 + self.cursor.char as u16, // 2 for prefix width
-            area.y + self.cursor.line as u16 - self.scroll,
-        );
-        frame.set_cursor_position(cursor_position);
+        if let Some(y_offset) = (self.cursor.line as u16).checked_sub(self.scroll)
+            && y_offset < area.height
+            && let x_offset = self.cursor.char as u16 + 2 // 2 for prefix width
+            && x_offset < area.width
+        {
+            let cursor_position = (area.x + x_offset, area.y + y_offset);
+            frame.set_cursor_position(cursor_position);
+        }
     }
 }
