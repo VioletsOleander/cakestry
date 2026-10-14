@@ -22,6 +22,7 @@ struct Range {
 impl ChatStream {
     // The chatstream is allowed to have a height larger than area.height. The rendered viewport
     // is determined by the scroll offset and a part of the stream will be rendered to it.
+    // This partial rendering idea applies to every scrollable widget in the chatstream.
     pub fn render(state: &State, area: Rect, frame: &mut Frame) {
         let view_range = Range::new(
             state.stream_scroll,
