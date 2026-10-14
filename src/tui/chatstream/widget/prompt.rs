@@ -3,16 +3,17 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::Span;
-use ratatui::widgets::{Paragraph, Widget};
+use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
 
-use super::wrap_line;
+use super::Widget;
+use crate::tui::chatstream::textwrap::wrap_line;
 
-pub struct PromptView<'a> {
+pub struct Prompt<'a> {
     lines: Vec<&'a str>,
     scroll: u16,
 }
 
-impl<'a> PromptView<'a> {
+impl<'a> Prompt<'a> {
     pub fn build(prompt: &'a str, width: usize) -> Result<Self> {
         // 1 marker width + 1 space = 2
         let prefix_width = 2;
@@ -28,17 +29,21 @@ impl<'a> PromptView<'a> {
             None => Err(anyhow!("failed to construct prompt view with given width")),
         }
     }
+}
 
-    pub fn scroll(mut self, scroll: u16) -> Self {
-        self.scroll = scroll;
-        self
+impl<'a> Widget for Prompt<'a> {
+    fn scroll(self, scroll: u16) -> Self {
+        Self {
+            lines: self.lines,
+            scroll,
+        }
     }
 
-    pub fn height(&self) -> usize {
+    fn height(&self) -> usize {
         self.lines.len()
     }
 
-    pub fn render(&self, area: Rect, frame: &mut Frame) {
+    fn render(&self, area: Rect, frame: &mut Frame) {
         let [spans_area, paragraph_area] =
             Layout::horizontal([Constraint::Length(1), Constraint::Fill(1)])
                 .spacing(1)

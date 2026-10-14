@@ -12,7 +12,7 @@ impl StatusLine {
         match state.mode {
             Mode::Command => {
                 let command = state.command_buffer.content().unwrap_or_default();
-                let command_span = Span::from(command);
+                let command_span = Span::from(format!(":{command}"));
 
                 let model = &state.providers[state.provider_index].model;
                 let model_span = Span::from(model);

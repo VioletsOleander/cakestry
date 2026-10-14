@@ -1,16 +1,17 @@
 use anyhow::{Result, anyhow};
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::widgets::{Paragraph, Widget};
+use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
 
-use super::wrap_line;
+use super::Widget;
+use crate::tui::chatstream::textwrap::wrap_line;
 
-pub struct ResponseView<'a> {
+pub struct Response<'a> {
     lines: Vec<&'a str>,
     scroll: u16,
 }
 
-impl<'a> ResponseView<'a> {
+impl<'a> Response<'a> {
     pub fn build(response: &'a str, width: usize) -> Result<Self> {
         // Textwrap algorithm expects positive width.
         match width > 0 {
@@ -26,17 +27,21 @@ impl<'a> ResponseView<'a> {
             )),
         }
     }
+}
 
-    pub fn scroll(mut self, scroll: u16) -> Self {
-        self.scroll = scroll;
-        self
+impl<'a> Widget for Response<'a> {
+    fn scroll(self, scroll: u16) -> Self {
+        Self {
+            lines: self.lines,
+            scroll,
+        }
     }
 
-    pub fn height(&self) -> usize {
+    fn height(&self) -> usize {
         self.lines.len()
     }
 
-    pub fn render(&self, area: Rect, frame: &mut Frame) {
+    fn render(&self, area: Rect, frame: &mut Frame) {
         Paragraph::new(self.lines.as_slice())
             .scroll((self.scroll, 0))
             .render(area, frame.buffer_mut());
