@@ -1,25 +1,19 @@
 use std::cmp;
 
 use ratatui::Frame;
-use ratatui::layout::{Offset, Rect};
-use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::UnicodeWidthStr;
+use ratatui::layout::Rect;
 
 use crate::state::State;
 
-mod buffer;
-mod prompt;
-mod response;
-mod spacer;
+mod textwrap;
+mod widget;
 
-use buffer::BufferView;
-use prompt::PromptView;
-use response::ResponseView;
-use spacer::Spacer;
+use widget::{Prompt, Response, SpaceLine, TextBuffer, Widget};
 
 pub struct ChatStream;
 
 /// Range in absolute y coordinates, with inclusive start and exclusive end.
+#[derive(Clone, Copy)]
 struct Range {
     start: usize,
     end: usize,
@@ -29,52 +23,43 @@ impl ChatStream {
     // The chatstream is allowed to have a height larger than area.height. The rendered viewport
     // is determined by the scroll offset and a part of the stream will be rendered to it.
     pub fn render(state: &State, area: Rect, frame: &mut Frame) {
-        let viewport = Range::new(
+        let view_range = Range::new(
             state.stream_scroll,
             state.stream_scroll + area.height as usize,
         );
-        let mut widget = Range::new(0, 0);
+        let mut widget_range = Range::new(0, 0);
 
         for exchange in &state.exchanges {
-            if let Ok(prompt) = PromptView::build(&exchange.prompt, area.width as usize)
-                && let Some(visible) =
-                    get_visible_range(&viewport, widget.proceed().extend(prompt.height()))
+            if let Ok(prompt) = Prompt::build(&exchange.prompt, area.width as usize) {
+                widget_range = widget_range.proceed().extend(prompt.height());
+                try_render_widget(prompt, view_range, widget_range, area, frame);
+            }
+
             {
-                let scroll = (visible.start - widget.start) as u16;
-                let area = area.offset(Offset::new(0, (visible.start - viewport.start) as i32));
-
-                prompt.scroll(scroll).render(area, frame);
+                let spaceline = SpaceLine::default();
+                widget_range = widget_range.proceed().extend(spaceline.height());
+                try_render_widget(spaceline, view_range, widget_range, area, frame);
             }
 
-            if let Some(visible) = get_visible_range(&viewport, widget.proceed().extend(1)) {
-                let area = area.offset(Offset::new(0, (visible.start - viewport.start) as i32));
-                Spacer::render(area, frame);
+            if let Ok(response) = Response::build(&exchange.response, area.width as usize) {
+                widget_range = widget_range.proceed().extend(response.height());
+                try_render_widget(response, view_range, widget_range, area, frame);
             }
 
-            if let Ok(response) = ResponseView::build(&exchange.response, area.width as usize)
-                && let Some(visible) =
-                    get_visible_range(&viewport, widget.proceed().extend(response.height()))
             {
-                let scroll = (visible.start - widget.start) as u16;
-                let area = area.offset(Offset::new(0, (visible.start - viewport.start) as i32));
-
-                response.scroll(scroll).render(area, frame);
-            }
-
-            if let Some(visible) = get_visible_range(&viewport, widget.proceed().extend(1)) {
-                let area = area.offset(Offset::new(0, (visible.start - viewport.start) as i32));
-                Spacer::render(area, frame);
+                let spaceline = SpaceLine::default();
+                widget_range = widget_range.proceed().extend(spaceline.height());
+                try_render_widget(spaceline, view_range, widget_range, area, frame);
             }
         }
 
-        if let Ok(buffer) = BufferView::build(&state.prompt_buffer, area.width as usize)
-            && let Some(visible) =
-                get_visible_range(&viewport, widget.proceed().extend(buffer.height()))
-        {
-            let scroll = (visible.start - widget.start) as u16;
-            let area = area.offset(Offset::new(0, (visible.start - viewport.start) as i32));
-
-            buffer.scroll(scroll).render(area, frame);
+        if let Ok(textbuffer) = TextBuffer::build(
+            state.prompt_buffer.lines(),
+            state.prompt_buffer.cursor(),
+            area.width as usize,
+        ) {
+            widget_range = widget_range.proceed().extend(textbuffer.height());
+            try_render_widget(textbuffer, view_range, widget_range, area, frame);
         }
     }
 }
@@ -85,22 +70,45 @@ impl Range {
     }
 
     /// Extend range end by `delta`.
-    fn extend(&mut self, delta: usize) -> &mut Self {
-        self.end += delta;
-        self
+    fn extend(self, delta: usize) -> Self {
+        Self {
+            start: self.start,
+            end: self.end + delta,
+        }
     }
 
     /// Set range start to range end.
-    fn proceed(&mut self) -> &mut Self {
-        self.start = self.end;
-        self
+    fn proceed(self) -> Self {
+        Self {
+            start: self.end,
+            end: self.end,
+        }
+    }
+}
+
+fn try_render_widget(
+    widget: impl Widget,
+    view_range: Range,
+    widget_range: Range,
+    view_area: Rect,
+    frame: &mut Frame,
+) {
+    if let Some(visible_range) = get_visible_range(view_range, widget_range) {
+        let scroll = (visible_range.start - widget_range.start) as u16;
+        let area = Rect {
+            y: view_area.y + (visible_range.start - view_range.start) as u16,
+            height: (visible_range.end - visible_range.start) as u16,
+            ..view_area
+        };
+
+        widget.scroll(scroll).render(area, frame);
     }
 }
 
 /// Compute and return the widget's visible range in viewport.
 ///
 /// Return `None` if the widget is outside the viewport.
-fn get_visible_range(viewport: &Range, widget: &Range) -> Option<Range> {
+fn get_visible_range(viewport: Range, widget: Range) -> Option<Range> {
     if widget.end <= viewport.start || widget.start >= viewport.end {
         // Widget lies above or below the viewport.
         None
@@ -110,112 +118,5 @@ fn get_visible_range(viewport: &Range, widget: &Range) -> Option<Range> {
         let end = cmp::min(viewport.end, widget.end);
 
         Some(Range::new(start, end))
-    }
-}
-
-/// Wrap `line` into possibly multiple lines according to `width`.
-///
-/// `width` is supposed to be Unicode width, and is required to be positive.
-fn wrap_line(line: &str, width: usize) -> Vec<&str> {
-    let mut lines = Vec::new();
-
-    let mut line_width = 0;
-    let mut start_idx = 0;
-
-    for (idx, grapheme) in line.grapheme_indices(true) {
-        let grapheme_width = grapheme.width();
-
-        if line_width + grapheme_width > width {
-            // Last line ranges from the start grapheme to last grapheme.
-            lines.push(&line[start_idx..idx]);
-
-            // This line starts from current grapheme.
-            start_idx = idx;
-            line_width = grapheme_width;
-        } else {
-            line_width += grapheme_width;
-        }
-    }
-
-    // Trailing graphemes
-    lines.push(&line[start_idx..]);
-
-    lines
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn no_wrap_ascii() {
-        let line = "Hello World";
-        let width = 11;
-
-        let lines = wrap_line(line, width);
-
-        assert_eq!(lines.len(), 1);
-        assert_eq!(lines[0], "Hello World");
-    }
-
-    #[test]
-    fn one_wrap_ascii() {
-        let line = "Hello World";
-        let width = 10;
-
-        let lines = wrap_line(line, width);
-
-        assert_eq!(lines.len(), 2);
-        assert_eq!(lines[0], "Hello Worl");
-        assert_eq!(lines[1], "d");
-    }
-
-    #[test]
-    fn two_wrap_ascii() {
-        let line = "Hello World";
-        let width = 5;
-
-        let lines = wrap_line(line, width);
-
-        assert_eq!(lines.len(), 3);
-        assert_eq!(lines[0], "Hello");
-        assert_eq!(lines[1], " Worl");
-        assert_eq!(lines[2], "d");
-    }
-
-    #[test]
-    fn no_wrap_cjk() {
-        let line = "你好 世界";
-        let width = 9;
-
-        let lines = wrap_line(line, width);
-
-        assert_eq!(lines.len(), 1);
-        assert_eq!(lines[0], "你好 世界");
-    }
-
-    #[test]
-    fn one_wrap_cjk() {
-        let line = "你好 世界";
-        let width = 8;
-
-        let lines = wrap_line(line, width);
-
-        assert_eq!(lines.len(), 2);
-        assert_eq!(lines[0], "你好 世");
-        assert_eq!(lines[1], "界");
-    }
-
-    #[test]
-    fn two_wrap_cjk() {
-        let line = "你好 世界";
-        let width = 4;
-
-        let lines = wrap_line(line, width);
-
-        assert_eq!(lines.len(), 3);
-        assert_eq!(lines[0], "你好");
-        assert_eq!(lines[1], " 世");
-        assert_eq!(lines[2], "界");
     }
 }
