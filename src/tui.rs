@@ -12,9 +12,11 @@ use ratatui::layout::{Constraint, Layout};
 use crate::state::State;
 
 mod chatstream;
+mod separator;
 mod statusline;
 
 use chatstream::ChatStream;
+use separator::Separator;
 use statusline::StatusLine;
 
 pub struct Tui {
@@ -38,10 +40,15 @@ impl Tui {
 
     pub fn render(&mut self, state: &State) -> Result<()> {
         self.terminal.draw(|frame| {
-            let [session_area, statusline_area] =
-                Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(frame.area());
+            let [session_area, separator_area, statusline_area] = Layout::vertical([
+                Constraint::Fill(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+            ])
+            .areas(frame.area());
 
             ChatStream::render(state, session_area, frame);
+            Separator::render(separator_area, frame);
             StatusLine::render(state, statusline_area, frame);
         })?;
 
