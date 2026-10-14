@@ -141,7 +141,7 @@ impl TextBuffer {
     ///
     /// The behaviour aligns with i_CTRL-U in vim.
     pub fn delete_line_backward(&mut self) {
-        self.lines[self.cursor.char].drain(0..self.cursor.char);
+        self.lines[self.cursor.line].drain(0..self.cursor.char);
         self.cursor.char = 0;
     }
 }
