@@ -23,12 +23,13 @@ impl TerminalEventHandler {
                 Mode::Command => self.handle_command_key(key, state),
             },
             Event::Mouse(mouse) => match mouse.kind {
+                // Step size 3 is comfortable, step size 1 feels too sluggish.
                 MouseEventKind::ScrollUp => {
-                    state.stream_scroll = state.stream_scroll.saturating_sub(1);
+                    state.stream_scroll = state.stream_scroll.saturating_sub(3);
                 }
 
                 MouseEventKind::ScrollDown => {
-                    state.stream_scroll = state.stream_scroll.saturating_add(1);
+                    state.stream_scroll = state.stream_scroll.saturating_add(3);
                 }
                 _ => (),
             },
