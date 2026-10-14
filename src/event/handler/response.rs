@@ -19,7 +19,7 @@ impl ResponseEventHandler {
                     let exchange = state
                         .exchanges
                         .last_mut()
-                        .expect("There should be at least one existing exchange.");
+                        .expect("there should be at least one existing exchange.");
 
                     exchange.response.push_str(&event.delta);
                 }
