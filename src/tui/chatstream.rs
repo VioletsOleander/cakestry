@@ -95,11 +95,12 @@ fn try_render_widget(
 ) {
     if let Some(visible_range) = get_visible_range(view_range, widget_range) {
         let scroll = (visible_range.start - widget_range.start) as u16;
-        let area = Rect {
-            y: view_area.y + (visible_range.start - view_range.start) as u16,
-            height: (visible_range.end - visible_range.start) as u16,
-            ..view_area
-        };
+        let area = Rect::new(
+            view_area.x,
+            view_area.y + (visible_range.start - view_range.start) as u16,
+            view_area.width,
+            (visible_range.end - visible_range.start) as u16,
+        );
 
         widget.scroll(scroll).render(area, frame);
     }
