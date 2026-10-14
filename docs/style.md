@@ -49,11 +49,12 @@ In each file, write code in groups, with the following order:
 2. Submodule declarations
 3. Imports from submodules
 4. Type aliases
-5. Enumeration declarations
-6. Enumeration implementation blocks
-7. Struct declarations
-8. Struct implementation blocks
-9. Functions
+5. Trait definitions.
+6. Enumeration declarations
+7. Enumeration implementation blocks
+8. Struct declarations
+9. Struct implementation blocks
+10. Functions
 
 In each group, put `pub` items first.
 
@@ -68,6 +69,14 @@ use submodule::foo;
 
 pub type PubFooType = foo::PubFooType;
 type FooType = foo::FooType;
+
+pub trait PubFooTrait {
+    // declarations and/or implementations
+}
+
+trait FooTrait {
+    // declarations and/or implementations
+}
 
 pub enum PubFooEnum {
     // variants
