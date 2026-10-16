@@ -12,30 +12,41 @@ pub enum Mode {
     Command,
 }
 
-pub struct State {
-    // Render.
-    pub exchanges: Vec<Exchange>,
-    pub notification: String,
-    pub stream_scroll: usize,
+#[derive(Clone, Copy)]
+pub enum ResponsePhase {
+    Created,
+    Reasoning,
+    Answering,
+    Finished,
+}
 
-    // Buffer.
+pub struct State {
+    // Rendering and Storage.
+    pub exchanges: Vec<Exchange>,
+    pub stream_scroll: usize,
+    pub notification: Notification,
     pub prompt_buffer: TextBuffer,
     pub command_buffer: TextBuffer,
 
-    // Provider.
+    // Dynamic Configuration.
     pub system_prompt: String,
     pub providers: Vec<Provider>,
     pub provider_index: usize,
 
-    // Others.
+    // Operation Logic.
     pub mode: Mode,
-    pub awaiting_response: bool,
+    pub response_phase: ResponsePhase,
     pub should_exit: bool,
 }
 
 pub struct Exchange {
     pub prompt: String,
     pub response: String,
+}
+
+#[derive(Default)]
+pub struct Notification {
+    pub content: String,
 }
 
 impl State {
@@ -53,7 +64,7 @@ impl State {
 
         Ok(Self {
             exchanges: Vec::default(),
-            notification: String::new(),
+            notification: Notification::default(),
             stream_scroll: 0,
             prompt_buffer: TextBuffer::default(),
             command_buffer: TextBuffer::default(),
@@ -61,7 +72,7 @@ impl State {
             provider_index,
             mode: Mode::Prompt,
             system_prompt: config.system_prompt,
-            awaiting_response: false,
+            response_phase: ResponsePhase::Finished,
             should_exit: false,
         })
     }
@@ -70,5 +81,12 @@ impl State {
 impl Exchange {
     pub fn new(prompt: String, response: String) -> Self {
         Self { prompt, response }
+    }
+}
+
+impl Notification {
+    pub fn set(&mut self, content: &str) {
+        self.content.clear();
+        self.content.push_str(content);
     }
 }
