@@ -58,7 +58,7 @@ fn main() -> Result<()> {
             recv(term_rx) -> result => {
                 // The second error is io::Error, which is unrecoverable.
                 let event = result??;
-                term_handler.handle(event, &mut state);
+                term_handler.handle(event, &mut state)?;
             },
             recv(resp_rx) -> result => {
                 let event = result?;

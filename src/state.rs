@@ -10,6 +10,7 @@ use buffer::TextBuffer;
 pub enum Mode {
     Prompt,
     Command,
+    Scroll,
 }
 
 #[derive(Clone, Copy)]
