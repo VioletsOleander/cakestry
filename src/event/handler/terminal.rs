@@ -91,12 +91,22 @@ impl TerminalEventHandler {
             }
             KeyModifiers::NONE => match key.code {
                 // Esc: Exit command mode, back to prompt mode.
-                KeyCode::Esc => state.mode = Mode::Prompt,
+                KeyCode::Esc => {
+                    state.command_buffer.clear();
+                    state.mode = Mode::Prompt;
+                }
                 // Enter: Submit command.
                 KeyCode::Enter => self.try_submit_command(state),
+                // Backspace: Delete prev char or back to prompt mode.
+                KeyCode::Backspace => {
+                    if state.command_buffer.is_empty() {
+                        state.mode = Mode::Prompt;
+                    } else {
+                        state.command_buffer.delete_prev_char();
+                    }
+                }
                 KeyCode::Char(ch) => state.command_buffer.insert_char(ch),
                 KeyCode::Delete => state.command_buffer.delete_char(),
-                KeyCode::Backspace => state.command_buffer.delete_prev_char(),
                 KeyCode::Left => state.command_buffer.move_cursor_left(),
                 KeyCode::Right => state.command_buffer.move_cursor_right(),
                 _ => (),

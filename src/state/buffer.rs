@@ -148,14 +148,18 @@ impl TextBuffer {
 
 // Normal methods.
 impl TextBuffer {
+    /// Clear the buffer content.
+    pub fn clear(&mut self) {
+        self.lines = vec![String::new()];
+        self.cursor.line = 0;
+        self.cursor.char = 0;
+    }
+
     /// Clear and return the buffer content, or return `None` if buffer is empty.
     pub fn take_content(&mut self) -> Option<String> {
         if !self.is_empty() {
             let content = self.lines.join("\n");
-
-            self.lines = vec![String::new()];
-            self.cursor.line = 0;
-            self.cursor.char = 0;
+            self.clear();
 
             Some(content)
         } else {
@@ -172,6 +176,7 @@ impl TextBuffer {
         }
     }
 
+    /// Return `true` if the buffer content is empty, otherwise return `false`.
     pub fn is_empty(&self) -> bool {
         self.lines.len() == 1 && self.lines[0].len() == 0
     }
