@@ -1,7 +1,9 @@
+use anyhow::Result;
 use async_openai::types::responses::{
     EasyInputContent, EasyInputMessage, EasyInputMessageArgs, Role,
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind};
+use crossterm::terminal;
 
 use crate::command::CommandHandler;
 use crate::event::service::{ResponseEventService, TickEventService};
@@ -20,11 +22,12 @@ impl TerminalEventHandler {
         }
     }
 
-    pub fn handle(&self, event: Event, state: &mut State) {
+    pub fn handle(&self, event: Event, state: &mut State) -> Result<()> {
         match event {
             Event::Key(key) => match state.mode {
                 Mode::Prompt => self.handle_prompt_key(key, state),
                 Mode::Command => self.handle_command_key(key, state),
+                Mode::Scroll => self.handle_scroll_key(key, state)?,
             },
             Event::Mouse(mouse) => match mouse.kind {
                 // Step size 3 is comfortable, step size 1 feels too sluggish.
@@ -39,6 +42,8 @@ impl TerminalEventHandler {
             },
             _ => (),
         };
+
+        Ok(())
     }
 
     fn handle_prompt_key(&self, key: KeyEvent, state: &mut State) {
@@ -46,6 +51,8 @@ impl TerminalEventHandler {
             KeyModifiers::CONTROL => match key.code {
                 // CTRL-c: Enter command mode.
                 KeyCode::Char('c') => state.mode = Mode::Command,
+                // CTRL-s: Enter scroll mode.
+                KeyCode::Char('s') => state.mode = Mode::Scroll,
                 // CTRL-j: Break current line.
                 KeyCode::Char('j') => state.prompt_buffer.break_line(),
                 // CTRL-w: Delete a word backward.
@@ -115,6 +122,52 @@ impl TerminalEventHandler {
             },
             _ => (),
         }
+    }
+
+    fn handle_scroll_key(&self, key: KeyEvent, state: &mut State) -> Result<()> {
+        match key.modifiers {
+            KeyModifiers::CONTROL => match key.code {
+                // CTRL-u: Scroll up half screen.
+                KeyCode::Char('u') => {
+                    let lines = terminal::size()?.1 / 2;
+                    state.stream_scroll = state.stream_scroll.saturating_sub(lines as usize);
+                }
+                // CTRL-d: Scroll down half screen.
+                KeyCode::Char('d') => {
+                    let lines = terminal::size()?.1 / 2;
+                    state.stream_scroll = state.stream_scroll.saturating_add(lines as usize);
+                }
+                // Ctrl-y: Scroll up 1/4 screen.
+                KeyCode::Char('y') => {
+                    let lines = terminal::size()?.1 / 4;
+                    state.stream_scroll = state.stream_scroll.saturating_sub(lines as usize);
+                }
+                // Ctrl-e: Scroll down 1/4 screen.
+                KeyCode::Char('e') => {
+                    let lines = terminal::size()?.1 / 4;
+                    state.stream_scroll = state.stream_scroll.saturating_add(lines as usize);
+                }
+                _ => (),
+            },
+            KeyModifiers::NONE => match key.code {
+                // Esc: Exit scroll mode, back to prompt mode.
+                KeyCode::Esc => {
+                    state.mode = Mode::Prompt;
+                }
+                // Up: Scroll up one line.
+                KeyCode::Up => {
+                    state.stream_scroll = state.stream_scroll.saturating_sub(1);
+                }
+                // Down: Scroll down one line.
+                KeyCode::Down => {
+                    state.stream_scroll = state.stream_scroll.saturating_add(1);
+                }
+                _ => (),
+            },
+            _ => (),
+        };
+
+        Ok(())
     }
 
     fn try_submit_prompt(&self, state: &mut State) {
