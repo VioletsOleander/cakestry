@@ -1,3 +1,5 @@
+use std::cmp;
+
 pub struct TextBuffer {
     lines: Vec<String>,
     cursor: Cursor,
@@ -70,10 +72,7 @@ impl TextBuffer {
             self.lines[self.cursor.line].remove(self.cursor.char);
         }
     }
-}
 
-// Regular mouse actions.
-impl TextBuffer {
     /// Move the cursor left by one character.
     pub fn move_cursor_left(&mut self) {
         if let Some(ch) = self.lines[self.cursor.line][..self.cursor.char]
@@ -91,6 +90,26 @@ impl TextBuffer {
             .next()
         {
             self.cursor.char += ch.len_utf8()
+        }
+    }
+
+    /// Move the cursor up by one line.
+    pub fn move_cursor_up(&mut self) {
+        if self.cursor.line > 0 {
+            let prev_line = &self.lines[self.cursor.line - 1];
+
+            self.cursor.char = cmp::min(self.cursor.char, prev_line.len());
+            self.cursor.line -= 1;
+        }
+    }
+
+    /// Move the cursor down by one line.
+    pub fn move_cursor_down(&mut self) {
+        if self.cursor.line < self.lines.len() - 1 {
+            let next_line = &self.lines[self.cursor.line + 1];
+
+            self.cursor.char = cmp::min(self.cursor.char, next_line.len());
+            self.cursor.line += 1;
         }
     }
 }

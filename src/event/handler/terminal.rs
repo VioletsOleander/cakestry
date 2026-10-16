@@ -67,6 +67,8 @@ impl TerminalEventHandler {
                 KeyCode::Backspace => state.prompt_buffer.delete_prev_char(),
                 KeyCode::Left => state.prompt_buffer.move_cursor_left(),
                 KeyCode::Right => state.prompt_buffer.move_cursor_right(),
+                KeyCode::Up => state.prompt_buffer.move_cursor_up(),
+                KeyCode::Down => state.prompt_buffer.move_cursor_down(),
                 _ => (),
             },
             _ => (),
