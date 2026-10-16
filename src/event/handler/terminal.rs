@@ -4,16 +4,20 @@ use async_openai::types::responses::{
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind};
 
 use crate::command::CommandHandler;
-use crate::event::service::ResponseEventService;
-use crate::state::{Exchange, Mode, State};
+use crate::event::service::{ResponseEventService, TickEventService};
+use crate::state::{Exchange, Mode, ResponsePhase, State};
 
 pub struct TerminalEventHandler {
-    service: ResponseEventService,
+    resp_service: ResponseEventService,
+    tick_service: TickEventService,
 }
 
 impl TerminalEventHandler {
-    pub fn new(service: ResponseEventService) -> Self {
-        Self { service }
+    pub fn new(resp_service: ResponseEventService, tick_service: TickEventService) -> Self {
+        Self {
+            resp_service,
+            tick_service,
+        }
     }
 
     pub fn handle(&self, event: Event, state: &mut State) {
@@ -102,16 +106,18 @@ impl TerminalEventHandler {
     }
 
     fn try_submit_prompt(&self, state: &mut State) {
-        if !state.awaiting_response
+        if matches!(state.response_phase, ResponsePhase::Finished)
             && let Some(prompt) = state.prompt_buffer.take_content()
         {
             let messages = make_messages(prompt.clone(), state);
             let model = state.providers[state.provider_index].model.clone();
 
-            self.service.create_responses(messages, model);
+            self.resp_service.create_responses(messages, model);
 
-            state.awaiting_response = true;
+            state.response_phase = ResponsePhase::Created;
             state.exchanges.push(Exchange::new(prompt, String::new()));
+
+            self.tick_service.run();
         }
     }
 

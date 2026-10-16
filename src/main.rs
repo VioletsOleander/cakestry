@@ -10,8 +10,8 @@ mod state;
 mod tui;
 
 use config::Config;
-use event::handler::{ResponseEventHandler, TerminalEventHandler};
-use event::service::{ResponseEventService, TerminalEventService};
+use event::handler::{ResponseEventHandler, TerminalEventHandler, TickEventHandler};
+use event::service::{ResponseEventService, TerminalEventService, TickEventService};
 use state::State;
 use tui::Tui;
 
@@ -37,13 +37,17 @@ fn main() -> Result<()> {
     let mut tui = Tui::build()?;
 
     let (term_tx, term_rx) = bounded(1);
-    let term_service = TerminalEventService::build()?;
-
     let (resp_tx, resp_rx) = bounded(16);
-    let resp_service = ResponseEventService::build(&state, resp_tx)?;
+    let (tick_tx, tick_rx) = bounded(1);
+    let (tickstop_tx, tickstop_rx) = bounded(1);
 
-    let term_handler = TerminalEventHandler::new(resp_service);
-    let resp_handler = ResponseEventHandler::new();
+    let term_service = TerminalEventService::build()?;
+    let resp_service = ResponseEventService::build(&state, resp_tx)?;
+    let tick_service = TickEventService::new(tick_tx, tickstop_rx);
+
+    let term_handler = TerminalEventHandler::new(resp_service, tick_service);
+    let resp_handler = ResponseEventHandler::new(tickstop_tx);
+    let tick_handler = TickEventHandler::new();
 
     term_service.run(term_tx);
 
@@ -59,6 +63,10 @@ fn main() -> Result<()> {
             recv(resp_rx) -> result => {
                 let event = result?;
                 resp_handler.handle(event, &mut state);
+            },
+            recv(tick_rx) -> result => {
+                let event = result?;
+                tick_handler.handle(event, &mut state)?;
             }
         };
     }

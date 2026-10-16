@@ -20,7 +20,7 @@ impl CommandHandler {
     pub fn handle(command: String, state: &mut State) {
         match parse_command(command) {
             Ok(command) => execute_command(command, state),
-            Err(err) => state.notification = err.to_string(),
+            Err(err) => state.notification.set(err.to_string().as_str()),
         }
     }
 }
