@@ -169,6 +169,10 @@ impl TerminalEventHandler {
                 KeyCode::Esc => {
                     state.mode = Mode::Prompt;
                 }
+                // i: Exit scroll mode, back to prompt mode.
+                KeyCode::Char('i') => {
+                    state.mode = Mode::Prompt;
+                }
                 // Up: Scroll up one line.
                 KeyCode::Up => {
                     state.stream_scroll = state.stream_scroll.saturating_sub(1);
