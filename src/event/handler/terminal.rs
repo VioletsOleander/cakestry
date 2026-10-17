@@ -154,6 +154,14 @@ impl TerminalEventHandler {
                     let lines = terminal::size()?.1 / 4;
                     state.stream_scroll = state.stream_scroll.saturating_add(lines as usize);
                 }
+                // Ctrl-k: Scroll up 1 line.
+                KeyCode::Char('k') => {
+                    state.stream_scroll = state.stream_scroll.saturating_sub(1);
+                }
+                // Ctrl-j: Scroll down 1 line.
+                KeyCode::Char('j') => {
+                    state.stream_scroll = state.stream_scroll.saturating_add(1);
+                }
                 _ => (),
             },
             KeyModifiers::NONE => match key.code {
