@@ -5,57 +5,52 @@ use ratatui::widgets::Widget;
 
 use crate::state::{Mode, State};
 
+mod textspan;
+
+use textspan::TextSpan;
+
 pub struct StatusLine;
 
 impl StatusLine {
     pub fn render(state: &State, area: Rect, frame: &mut Frame) {
+        let buf = frame.buffer_mut();
+
         let model = &state.providers[state.provider_index].model;
+
+        let name_span = Span::from(state.mode.name());
         let model_span = Span::from(model);
 
-        match state.mode {
-            Mode::Command => {
-                let command = state.command_buffer.content().unwrap_or_default();
+        let [name_area, model_area] = Layout::horizontal([
+            Constraint::Fill(1),
+            Constraint::Length(model_span.width() as u16),
+        ])
+        .areas(area);
 
-                let mode_span = Span::from("Command:");
-                let command_span = Span::from(command);
+        if matches!(state.mode, Mode::Command) {
+            let command_span = TextSpan::new(
+                state
+                    .command_buffer
+                    .line(0)
+                    .map_or("", |line| line.as_str()),
+                state.command_buffer.cursor().char,
+            );
 
-                let areas: [_; 3] = Layout::horizontal([
-                    Constraint::Length(mode_span.width() as u16),
-                    Constraint::Fill(1),
-                    Constraint::Length(model_span.width() as u16),
-                ])
-                .areas(area);
+            let [name_area, command_area] = Layout::horizontal([
+                Constraint::Length(name_span.width() as u16),
+                Constraint::Fill(1),
+            ])
+            .areas(area);
 
-                for (span, area) in [mode_span, command_span, model_span].iter().zip(areas) {
-                    span.render(area, frame.buffer_mut());
-                }
+            name_span.render(name_area, buf);
+            command_span.render(command_area, buf);
+            model_span.render(model_area, buf);
+
+            if let Some(position) = command_span.compute_cursor_position(command_area) {
+                frame.set_cursor_position(position);
             }
-            Mode::Prompt => {
-                let mode_span = Span::from("Prompt");
-
-                let areas: [_; 2] = Layout::horizontal([
-                    Constraint::Fill(1),
-                    Constraint::Length(model_span.width() as u16),
-                ])
-                .areas(area);
-
-                for (span, area) in [mode_span, model_span].iter().zip(areas) {
-                    span.render(area, frame.buffer_mut());
-                }
-            }
-            Mode::Scroll => {
-                let mode_span = Span::from("Scroll");
-
-                let areas: [_; 2] = Layout::horizontal([
-                    Constraint::Fill(1),
-                    Constraint::Length(model_span.width() as u16),
-                ])
-                .areas(area);
-
-                for (span, area) in [mode_span, model_span].iter().zip(areas) {
-                    span.render(area, frame.buffer_mut());
-                }
-            }
+        } else {
+            name_span.render(name_area, buf);
+            model_span.render(model_area, buf);
         }
     }
 }
