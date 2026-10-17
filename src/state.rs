@@ -50,6 +50,16 @@ pub struct Notification {
     pub content: String,
 }
 
+impl Mode {
+    pub fn name(&self) -> &str {
+        match self {
+            Mode::Prompt => "Prompt",
+            Mode::Command => "Command",
+            Mode::Scroll => "Scroll",
+        }
+    }
+}
+
 impl State {
     pub fn build(config: Config) -> Result<Self> {
         let provider_index = config

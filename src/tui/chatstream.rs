@@ -29,6 +29,8 @@ impl ChatStream {
     // is determined by the scroll offset and a part of the stream will be rendered to it.
     // This partial rendering idea applies to every scrollable widget in the chatstream.
     pub fn render(state: &State, area: Rect, frame: &mut Frame) {
+        let buf = frame.buffer_mut();
+
         let view = Range::new(
             state.stream_scroll,
             state.stream_scroll + area.height as usize,
@@ -40,9 +42,7 @@ impl ChatStream {
                 widget = widget.proceed().extend(prompt.height());
 
                 if let Some(viewport) = get_viewport(view, widget, area) {
-                    prompt
-                        .scroll(viewport.scroll)
-                        .render(viewport.area, frame.buffer_mut());
+                    prompt.scroll(viewport.scroll).render(viewport.area, buf);
                 }
             }
 
@@ -50,9 +50,7 @@ impl ChatStream {
                 widget = widget.proceed().extend(spaceline.height());
 
                 if let Some(viewport) = get_viewport(view, widget, area) {
-                    spaceline
-                        .scroll(viewport.scroll)
-                        .render(viewport.area, frame.buffer_mut());
+                    spaceline.scroll(viewport.scroll).render(viewport.area, buf);
                 }
             }
 
@@ -60,9 +58,7 @@ impl ChatStream {
                 widget = widget.proceed().extend(response.height());
 
                 if let Some(viewport) = get_viewport(view, widget, area) {
-                    response
-                        .scroll(viewport.scroll)
-                        .render(viewport.area, frame.buffer_mut());
+                    response.scroll(viewport.scroll).render(viewport.area, buf);
                 }
             }
 
@@ -70,9 +66,7 @@ impl ChatStream {
                 widget = widget.proceed().extend(spaceline.height());
 
                 if let Some(viewport) = get_viewport(view, widget, area) {
-                    spaceline
-                        .scroll(viewport.scroll)
-                        .render(viewport.area, frame.buffer_mut());
+                    spaceline.scroll(viewport.scroll).render(viewport.area, buf);
                 }
             }
         }
@@ -87,7 +81,7 @@ impl ChatStream {
             if let Some(viewport) = get_viewport(view, widget, area) {
                 let textbuffer = textbuffer.scroll(viewport.scroll);
 
-                textbuffer.render(viewport.area, frame.buffer_mut());
+                textbuffer.render(viewport.area, buf);
 
                 if matches!(state.mode, Mode::Prompt)
                     && let Some(position) = textbuffer.compute_cursor_position(viewport.area)
