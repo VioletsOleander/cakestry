@@ -1,3 +1,77 @@
+## [0.2.0] - 2026-10-17
+
+### Summary
+
+The codebase is significantly refactored for better maintainability.
+
+Modal-based keyboard shortcuts is introduced. Currently support three types of mode: prompt mode,
+command mode and scroll mode.
+
+UI is slightly improved by introducing a spinner animation as waiting indicator.
+
+### Features
+
+- Support tracing event filter by CAKESTRY_LOG env var ([d8fe10e](https://github.com/VioletsOleander/cakestry/commit/d8fe10eeb812bf91053d2a94056c59c06ede19de))
+- Add simple thinking indicator ([4c96bb3](https://github.com/VioletsOleander/cakestry/commit/4c96bb3a7dfe492dce6b811ecf9c06d55ee45164))
+- Add naive command parse and execute logic ([e0ac90e](https://github.com/VioletsOleander/cakestry/commit/e0ac90e12ad151cd3fe73072ac9df2bf0912f9d0))
+- Add separator line between statusline and chatstream ([f0f7d30](https://github.com/VioletsOleander/cakestry/commit/f0f7d3082f7765ff9f112925103600419adc1dc2))
+- Add tick spinner during waiting ([c3ca7dc](https://github.com/VioletsOleander/cakestry/commit/c3ca7dcfdfffd05118961066baa1fb4612d61255))
+- Support up and down arrow action for text buffer ([1d75cf9](https://github.com/VioletsOleander/cakestry/commit/1d75cf98c164c636c81e2153723bf56b221c12bc))
+- Add scroll mode ([28834e8](https://github.com/VioletsOleander/cakestry/commit/28834e88fccd9aa4d47c6cb7140f16b0cd4f17cd))
+- Support command and scroll mode inter-switch ([a89e4ff](https://github.com/VioletsOleander/cakestry/commit/a89e4ff9a30ee78cedf7886382a7899fd08282ab))
+- Support command line cursor rendering ([981c9f4](https://github.com/VioletsOleander/cakestry/commit/981c9f418b97ef80c99a68ea154b585d42b5a3f4))
+- Add CTRL-j/k shortcut in scroll mode ([cb498c8](https://github.com/VioletsOleander/cakestry/commit/cb498c8aa5e25f0718348f3438e320e62197fc29))
+- Let "i" switch to prompt mode in scroll mode ([3a5ac7a](https://github.com/VioletsOleander/cakestry/commit/3a5ac7a19df11b1ee906d0aff88d225eac464b73))
+
+### Bug Fixes
+
+- Correct the index used in buffer.delete_line_backward ([c5a9edd](https://github.com/VioletsOleander/cakestry/commit/c5a9edd22ae602711107f84602ec7428df404ac0))
+- Resolve scroll and cursor rendering issue ([2b5b098](https://github.com/VioletsOleander/cakestry/commit/2b5b0988fa38d72bb2720e8c5a13721cbb86ade6))
+
+### Refactor
+
+- Introduce actions as event handling feedback ([862134b](https://github.com/VioletsOleander/cakestry/commit/862134b2c2e952ad0f4304d734b3521837482364))
+- Add arg, config module, introduce error propagation ([86121cd](https://github.com/VioletsOleander/cakestry/commit/86121cd45f53cc545557dca753cd464f462e54af))
+- Implement TerminalEventListener ([f19ba72](https://github.com/VioletsOleander/cakestry/commit/f19ba72f27a483ef59e0eace3509dc00c8fad6a6))
+- Consolidate `make_request` and `make_response` into one `launch_request` ([36d4178](https://github.com/VioletsOleander/cakestry/commit/36d417854c1f2f192f2c5a7b75561fd2d738e22e))
+- Unify service abstraction, introduce event handler and state ([4d8f1ed](https://github.com/VioletsOleander/cakestry/commit/4d8f1ed4d35e22b76b3256171c6128eb42a2f7e1))
+- Implement editing functionality for `TextBuffer` ([58dfec3](https://github.com/VioletsOleander/cakestry/commit/58dfec3428ce3dc84b4627d3cd191576b72b2aeb))
+- Aggregate more states to State ([e9b0e4d](https://github.com/VioletsOleander/cakestry/commit/e9b0e4d32257858c7c405fafe4df0f606a498200))
+- Make fields pub for passive data structure ([e66762c](https://github.com/VioletsOleander/cakestry/commit/e66762c23fc01a0a1077f9359a0ec4728d64a94f))
+- Implement basic response event handler ([b96c989](https://github.com/VioletsOleander/cakestry/commit/b96c989b31af3a0661f8f211c1acb264a82708cc))
+- Implement statusline and partial chatstream rendering ([0ccea92](https://github.com/VioletsOleander/cakestry/commit/0ccea92fbf264d60b1b90f187fec01a4ec087db7))
+- Implement bufferview rendering logic ([f01e204](https://github.com/VioletsOleander/cakestry/commit/f01e20446855a345b8867bd995cbfa977e4a2957))
+- Reduce repeat pattern in chatstream rendering loop ([7edf976](https://github.com/VioletsOleander/cakestry/commit/7edf97687feafd8748efdcdb7b646045bf9b269b))
+- Set scroll stepsize to 3 to avoid sluggish ([897d9d1](https://github.com/VioletsOleander/cakestry/commit/897d9d1a75c22b50bb7b101f5fbbb06c1fc066f5))
+- Let command buffer not memorize previous input, allow backspace to exit command mode ([d350a7c](https://github.com/VioletsOleander/cakestry/commit/d350a7cdeeba9498ac84d45b2e683753f364bfc7))
+- Do not render cursor when in scroll mode ([d93daa5](https://github.com/VioletsOleander/cakestry/commit/d93daa5d9aa01e602433d93941a23a7f9298104b))
+
+### Documentation
+
+- Add release workflow ([917643d](https://github.com/VioletsOleander/cakestry/commit/917643d4216740551d234f80d1bf07adc62e034d))
+- Add description of CAKESTRY_LOG ([e2971ad](https://github.com/VioletsOleander/cakestry/commit/e2971ad0eea6683bf74d9baac5330119ad28e131))
+- Add separate impl blocks style and default/new style guide ([2190805](https://github.com/VioletsOleander/cakestry/commit/2190805511c9d6277f1a09d9baa49c798ce10488))
+- Add code style examples ([a2c794a](https://github.com/VioletsOleander/cakestry/commit/a2c794a3ea648a4f8c27607482e636afdf50b173))
+- Add group order style guide ([aac9de6](https://github.com/VioletsOleander/cakestry/commit/aac9de6f53928b30ec99c1bbbf4fe6ac36ef3f09))
+- Add area separation style ([d9ae49f](https://github.com/VioletsOleander/cakestry/commit/d9ae49f25fa1df642a0252ab14974ffc0161cc89))
+- Add &str, &String type comparsion in style ([e578ee5](https://github.com/VioletsOleander/cakestry/commit/e578ee53fadbb8ea6050451cc9bdab73e16d9229))
+- Add visibility style guide ([26c94b4](https://github.com/VioletsOleander/cakestry/commit/26c94b4a33abf55e55d793c2c770291a145a80fd))
+- Add trait order in style guide ([63f09cb](https://github.com/VioletsOleander/cakestry/commit/63f09cb2d29a189ce2bd3070e521199c42a0ca6d))
+
+### Miscellaneous Tasks
+
+- Add commit url in CHANGELOG ([191be2b](https://github.com/VioletsOleander/cakestry/commit/191be2be03d90fbb1676ffbee4900956a90dd3d6))
+- Add release workflow based on cargo dist ([d460810](https://github.com/VioletsOleander/cakestry/commit/d4608103b75aa2e94435e03adac9a5a70efb184b))
+- Temporarily enable dispatch release ([976ef74](https://github.com/VioletsOleander/cakestry/commit/976ef74ecbc10ac30277cecf4bc85fd2771df991))
+- Make test function style more unified ([f4aba16](https://github.com/VioletsOleander/cakestry/commit/f4aba166c60e80e7d36686b3d7b03e530f6446c6))
+- Fix typos ([f585ef7](https://github.com/VioletsOleander/cakestry/commit/f585ef7e0884f85e848e2d499668ee045cd85df9))
+- Add test workflow ([87e4b06](https://github.com/VioletsOleander/cakestry/commit/87e4b060783f95e70ad6d822b7dd60244b73f0e3))
+- Update cargo dist ([cde9618](https://github.com/VioletsOleander/cakestry/commit/cde96180aaef56d81af610bf06e395c4044ced10))
+
+### Revert
+
+- "ci: temporarily enable dispatch release" ([cfb9371](https://github.com/VioletsOleander/cakestry/commit/cfb937145aaf298b3853a7ade52319a086e43323))
+
 ## [0.1.0] - 2026-08-22
 
 ### Summary
