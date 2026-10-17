@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
 
@@ -14,17 +14,18 @@ pub struct Response<'a> {
 impl<'a> Response<'a> {
     pub fn build(response: &'a str, width: usize) -> Result<Self> {
         // Textwrap algorithm expects positive width.
-        match width > 0 {
-            true => Ok(Self {
+        if width > 0 {
+            Ok(Self {
                 lines: response
                     .lines()
                     .flat_map(|line| wrap_line(line, width))
                     .collect(),
                 scroll: 0,
-            }),
-            false => Err(anyhow!(
+            })
+        } else {
+            Err(anyhow!(
                 "expected to construct response view with width at least 1"
-            )),
+            ))
         }
     }
 }
@@ -41,9 +42,9 @@ impl<'a> Widget for Response<'a> {
         self.lines.len()
     }
 
-    fn render(&self, area: Rect, frame: &mut Frame) {
+    fn render(&self, area: Rect, buf: &mut Buffer) {
         Paragraph::new(self.lines.as_slice())
             .scroll((self.scroll, 0))
-            .render(area, frame.buffer_mut());
+            .render(area, buf);
     }
 }

@@ -1,4 +1,4 @@
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
 mod prompt;
@@ -12,7 +12,7 @@ pub use spaceline::SpaceLine;
 pub use textbuffer::TextBuffer;
 
 pub trait Widget {
-    fn render(&self, area: Rect, frame: &mut Frame);
+    fn render(&self, area: Rect, buf: &mut Buffer);
 
     fn height(&self) -> usize;
 

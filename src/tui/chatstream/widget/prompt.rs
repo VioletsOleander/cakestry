@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow};
-use ratatui::Frame;
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::Span;
@@ -43,7 +43,7 @@ impl<'a> Widget for Prompt<'a> {
         self.lines.len()
     }
 
-    fn render(&self, area: Rect, frame: &mut Frame) {
+    fn render(&self, area: Rect, buf: &mut Buffer) {
         let [spans_area, paragraph_area] =
             Layout::horizontal([Constraint::Length(1), Constraint::Fill(1)])
                 .spacing(1)
@@ -53,16 +53,14 @@ impl<'a> Widget for Prompt<'a> {
             let span_area = Rect::new(spans_area.x, spans_area.y + i, spans_area.width, 1);
 
             if i == 0 && self.scroll == 0 {
-                Span::styled(">", Style::default().fg(Color::Blue))
-                    .render(span_area, frame.buffer_mut());
+                Span::styled(">", Style::default().fg(Color::Blue)).render(span_area, buf);
             } else {
-                Span::styled(".", Style::default().fg(Color::Blue))
-                    .render(span_area, frame.buffer_mut());
+                Span::styled(".", Style::default().fg(Color::Blue)).render(span_area, buf);
             }
         }
 
         Paragraph::new(self.lines.as_slice())
             .scroll((self.scroll, 0))
-            .render(paragraph_area, frame.buffer_mut());
+            .render(paragraph_area, buf);
     }
 }
