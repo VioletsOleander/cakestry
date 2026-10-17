@@ -3,7 +3,7 @@ use std::cmp;
 use ratatui::Frame;
 use ratatui::layout::Rect;
 
-use crate::state::State;
+use crate::state::{Mode, State};
 
 mod textwrap;
 mod widget;
@@ -19,38 +19,61 @@ struct Range {
     end: usize,
 }
 
+struct Viewport {
+    scroll: u16,
+    area: Rect,
+}
+
 impl ChatStream {
     // The chatstream is allowed to have a height larger than area.height. The rendered viewport
     // is determined by the scroll offset and a part of the stream will be rendered to it.
     // This partial rendering idea applies to every scrollable widget in the chatstream.
     pub fn render(state: &State, area: Rect, frame: &mut Frame) {
-        let view_range = Range::new(
+        let view = Range::new(
             state.stream_scroll,
             state.stream_scroll + area.height as usize,
         );
-        let mut widget_range = Range::new(0, 0);
+        let mut widget = Range::new(0, 0);
 
         for exchange in &state.exchanges {
             if let Ok(prompt) = Prompt::build(&exchange.prompt, area.width as usize) {
-                widget_range = widget_range.proceed().extend(prompt.height());
-                try_render_widget(prompt, view_range, widget_range, area, frame);
+                widget = widget.proceed().extend(prompt.height());
+
+                if let Some(viewport) = get_viewport(view, widget, area) {
+                    prompt
+                        .scroll(viewport.scroll)
+                        .render(viewport.area, frame.buffer_mut());
+                }
             }
 
-            {
-                let spaceline = SpaceLine::default();
-                widget_range = widget_range.proceed().extend(spaceline.height());
-                try_render_widget(spaceline, view_range, widget_range, area, frame);
+            if let Ok(spaceline) = SpaceLine::build(area.width as usize) {
+                widget = widget.proceed().extend(spaceline.height());
+
+                if let Some(viewport) = get_viewport(view, widget, area) {
+                    spaceline
+                        .scroll(viewport.scroll)
+                        .render(viewport.area, frame.buffer_mut());
+                }
             }
 
             if let Ok(response) = Response::build(&exchange.response, area.width as usize) {
-                widget_range = widget_range.proceed().extend(response.height());
-                try_render_widget(response, view_range, widget_range, area, frame);
+                widget = widget.proceed().extend(response.height());
+
+                if let Some(viewport) = get_viewport(view, widget, area) {
+                    response
+                        .scroll(viewport.scroll)
+                        .render(viewport.area, frame.buffer_mut());
+                }
             }
 
-            {
-                let spaceline = SpaceLine::default();
-                widget_range = widget_range.proceed().extend(spaceline.height());
-                try_render_widget(spaceline, view_range, widget_range, area, frame);
+            if let Ok(spaceline) = SpaceLine::build(area.width as usize) {
+                widget = widget.proceed().extend(spaceline.height());
+
+                if let Some(viewport) = get_viewport(view, widget, area) {
+                    spaceline
+                        .scroll(viewport.scroll)
+                        .render(viewport.area, frame.buffer_mut());
+                }
             }
         }
 
@@ -59,8 +82,19 @@ impl ChatStream {
             state.prompt_buffer.cursor(),
             area.width as usize,
         ) {
-            widget_range = widget_range.proceed().extend(textbuffer.height());
-            try_render_widget(textbuffer, view_range, widget_range, area, frame);
+            widget = widget.proceed().extend(textbuffer.height());
+
+            if let Some(viewport) = get_viewport(view, widget, area) {
+                let textbuffer = textbuffer.scroll(viewport.scroll);
+
+                textbuffer.render(viewport.area, frame.buffer_mut());
+
+                if matches!(state.mode, Mode::Prompt)
+                    && let Some(position) = textbuffer.compute_cursor_position(viewport.area)
+                {
+                    frame.set_cursor_position(position);
+                }
+            }
         }
     }
 }
@@ -87,13 +121,7 @@ impl Range {
     }
 }
 
-fn try_render_widget(
-    widget: impl Widget,
-    view_range: Range,
-    widget_range: Range,
-    view_area: Rect,
-    frame: &mut Frame,
-) {
+fn get_viewport(view_range: Range, widget_range: Range, view_area: Rect) -> Option<Viewport> {
     if let Some(visible_range) = get_visible_range(view_range, widget_range) {
         let scroll = (visible_range.start - widget_range.start) as u16;
         let area = Rect::new(
@@ -103,7 +131,9 @@ fn try_render_widget(
             (visible_range.end - visible_range.start) as u16,
         );
 
-        widget.scroll(scroll).render(area, frame);
+        Some(Viewport { scroll, area })
+    } else {
+        None
     }
 }
 

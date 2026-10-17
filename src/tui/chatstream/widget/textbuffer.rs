@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::Span;
 use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
@@ -69,6 +69,18 @@ impl<'a> TextBuffer<'a> {
             None => Err(anyhow!("failed to construct buffer view with given width")),
         }
     }
+
+    pub fn compute_cursor_position(&self, area: Rect) -> Option<Position> {
+        if let Some(y_offset) = (self.cursor.line as u16).checked_sub(self.scroll)
+            && y_offset < area.height
+            && let x_offset = self.cursor.char as u16 + 2 // 2 for prefix width
+            && x_offset < area.width
+        {
+            Some(Position::new(area.x + x_offset, area.y + y_offset))
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> Widget for TextBuffer<'a> {
@@ -84,7 +96,7 @@ impl<'a> Widget for TextBuffer<'a> {
         self.lines.len()
     }
 
-    fn render(&self, area: Rect, frame: &mut Frame) {
+    fn render(&self, area: Rect, buf: &mut Buffer) {
         let [spans_area, paragraph_area] =
             Layout::horizontal([Constraint::Length(1), Constraint::Fill(1)])
                 .spacing(1)
@@ -94,25 +106,14 @@ impl<'a> Widget for TextBuffer<'a> {
             let span_area = Rect::new(spans_area.x, spans_area.y + i, spans_area.width, 1);
 
             if i == 0 && self.scroll == 0 {
-                Span::styled(">", Style::default().fg(Color::Green))
-                    .render(span_area, frame.buffer_mut());
+                Span::styled(">", Style::default().fg(Color::Green)).render(span_area, buf);
             } else {
-                Span::styled(".", Style::default().fg(Color::Green))
-                    .render(span_area, frame.buffer_mut());
+                Span::styled(".", Style::default().fg(Color::Green)).render(span_area, buf);
             }
         }
 
         Paragraph::new(self.lines.as_slice())
             .scroll((self.scroll, 0))
-            .render(paragraph_area, frame.buffer_mut());
-
-        if let Some(y_offset) = (self.cursor.line as u16).checked_sub(self.scroll)
-            && y_offset < area.height
-            && let x_offset = self.cursor.char as u16 + 2 // 2 for prefix width
-            && x_offset < area.width
-        {
-            let cursor_position = (area.x + x_offset, area.y + y_offset);
-            frame.set_cursor_position(cursor_position);
-        }
+            .render(paragraph_area, buf);
     }
 }
