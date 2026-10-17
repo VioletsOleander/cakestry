@@ -49,9 +49,9 @@ impl TerminalEventHandler {
     fn handle_prompt_key(&self, key: KeyEvent, state: &mut State) {
         match key.modifiers {
             KeyModifiers::CONTROL => match key.code {
-                // CTRL-c: Enter command mode.
+                // CTRL-c: Exit prompt mode, enter command mode.
                 KeyCode::Char('c') => state.mode = Mode::Command,
-                // CTRL-s: Enter scroll mode.
+                // CTRL-s: Exit prompt mode, enter scroll mode.
                 KeyCode::Char('s') => state.mode = Mode::Scroll,
                 // CTRL-j: Break current line.
                 KeyCode::Char('j') => state.prompt_buffer.break_line(),
@@ -68,7 +68,7 @@ impl TerminalEventHandler {
             }
             KeyModifiers::NONE => match key.code {
                 // Enter: Submit prompt
-                KeyCode::Enter => self.try_submit_prompt(state),
+                KeyCode::Enter => self.submit_prompt(state),
                 KeyCode::Char(ch) => state.prompt_buffer.insert_char(ch),
                 KeyCode::Delete => state.prompt_buffer.delete_char(),
                 KeyCode::Backspace => state.prompt_buffer.delete_prev_char(),
@@ -85,6 +85,11 @@ impl TerminalEventHandler {
     fn handle_command_key(&self, key: KeyEvent, state: &mut State) {
         match key.modifiers {
             KeyModifiers::CONTROL => match key.code {
+                // CTRL-s: Exit command mode, enter scroll mode.
+                KeyCode::Char('s') => {
+                    state.command_buffer.clear();
+                    state.mode = Mode::Scroll;
+                }
                 // CTRL-j: Break current line.
                 KeyCode::Char('j') => state.command_buffer.break_line(),
                 // CTRL-w: Delete a word backward.
@@ -99,13 +104,13 @@ impl TerminalEventHandler {
                 }
             }
             KeyModifiers::NONE => match key.code {
-                // Esc: Exit command mode, back to prompt mode.
+                // Esc: Exit command mode, enter prompt mode.
                 KeyCode::Esc => {
                     state.command_buffer.clear();
                     state.mode = Mode::Prompt;
                 }
                 // Enter: Submit command.
-                KeyCode::Enter => self.try_submit_command(state),
+                KeyCode::Enter => self.submit_command(state),
                 // Backspace: Delete prev char or back to prompt mode.
                 KeyCode::Backspace => {
                     if state.command_buffer.is_empty() {
@@ -127,6 +132,8 @@ impl TerminalEventHandler {
     fn handle_scroll_key(&self, key: KeyEvent, state: &mut State) -> Result<()> {
         match key.modifiers {
             KeyModifiers::CONTROL => match key.code {
+                // CTRL-c: Exit scroll mode, enter command mode.
+                KeyCode::Char('c') => state.mode = Mode::Command,
                 // CTRL-u: Scroll up half screen.
                 KeyCode::Char('u') => {
                     let lines = terminal::size()?.1 / 2;
@@ -170,7 +177,7 @@ impl TerminalEventHandler {
         Ok(())
     }
 
-    fn try_submit_prompt(&self, state: &mut State) {
+    fn submit_prompt(&self, state: &mut State) {
         if matches!(state.response_phase, ResponsePhase::Finished)
             && let Some(prompt) = state.prompt_buffer.take_content()
         {
@@ -186,7 +193,7 @@ impl TerminalEventHandler {
         }
     }
 
-    fn try_submit_command(&self, state: &mut State) {
+    fn submit_command(&self, state: &mut State) {
         if let Some(command) = state.command_buffer.take_content() {
             CommandHandler::handle(command, state);
         }

@@ -19,7 +19,7 @@ impl ResponseEventHandler {
             Ok(event) => match event {
                 ResponseStreamEvent::ResponseOutputItemAdded(event) => match event.item {
                     OutputItem::Message(_) => {
-                        self.try_stop_tick();
+                        self.stop_tick();
                         self.get_last_response(state).clear();
 
                         state.response_phase = ResponsePhase::Answering;
@@ -46,7 +46,7 @@ impl ResponseEventHandler {
                 _ => (),
             },
             Err(err) => {
-                self.try_stop_tick();
+                self.stop_tick();
 
                 state.response_phase = ResponsePhase::Finished;
                 state.notification.set(err.to_string().as_str());
@@ -64,10 +64,10 @@ impl ResponseEventHandler {
             .response
     }
 
-    fn try_stop_tick(&self) {
-        // If thread blocking `send` is used here, deadlock will possibly happen: the main thread
-        // waiting for the tick thread to receive TickStopEvent, the tick thread wait for the main
-        // thread to receive TickEvent.
+    fn stop_tick(&self) {
+        // If thread blocking `send` is used here, deadlock will possibly happen when the channel is
+        // zero capacity: the main thread waiting for the tick thread to receive TickStopEvent, the
+        // tick thread wait for the main thread to receive TickEvent.
         self.sender
             .try_send(TickStopEvent)
             .unwrap_or_else(|err| tracing::debug!("failed to send tick stop event due to {}", err));
