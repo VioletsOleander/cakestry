@@ -1,10 +1,13 @@
 use anyhow::{Result, anyhow};
+use async_openai::types::responses::{FunctionToolArgs, Role, Tool};
 
 use crate::config::{Config, Provider};
 
 pub mod buffer;
+pub mod message;
 
 use buffer::TextBuffer;
+use message::{Message, MessageSource, MessageStore};
 
 #[derive(Clone, Copy)]
 pub enum Mode {
@@ -14,40 +17,37 @@ pub enum Mode {
 }
 
 #[derive(Clone, Copy)]
-pub enum ResponsePhase {
+pub enum ResponseStage {
     Created,
     Reasoning,
     Answering,
     Finished,
 }
 
-pub struct State {
+pub enum ToolCallStage {
+    Created,
+    Finished,
+}
+
+pub struct State<'a> {
     // Rendering and Storage.
-    pub exchanges: Vec<Exchange>,
+    pub message_store: MessageStore,
     pub stream_scroll: usize,
-    pub notification: Notification,
     pub prompt_buffer: TextBuffer,
     pub command_buffer: TextBuffer,
+    pub tick_icons: [&'a str; 10],
+    pub tick_index: usize,
 
     // Dynamic Configuration.
-    pub system_prompt: String,
     pub providers: Vec<Provider>,
     pub provider_index: usize,
+    pub tools: Vec<Tool>,
 
     // Operation Logic.
     pub mode: Mode,
-    pub response_phase: ResponsePhase,
+    pub tool_stage: ToolCallStage,
+    pub resp_stage: ResponseStage,
     pub should_exit: bool,
-}
-
-pub struct Exchange {
-    pub prompt: String,
-    pub response: String,
-}
-
-#[derive(Default)]
-pub struct Notification {
-    pub content: String,
 }
 
 impl Mode {
@@ -60,8 +60,13 @@ impl Mode {
     }
 }
 
-impl State {
+impl<'a> State<'a> {
     pub fn build(config: Config) -> Result<Self> {
+        let message_store = MessageStore::new(vec![Message::new(
+            MessageSource::Role(Role::System),
+            config.system_prompt,
+        )]);
+
         let provider_index = config
             .providers
             .iter()
@@ -73,31 +78,33 @@ impl State {
                 )
             })?;
 
+        let tools = vec![Tool::Function(
+            FunctionToolArgs::default()
+                .name("test-tool")
+                .build()
+                .expect("name should be enough to build a function tool"),
+        )];
+
+        let tick_icons = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
         Ok(Self {
-            exchanges: Vec::default(),
-            notification: Notification::default(),
+            message_store,
             stream_scroll: 0,
             prompt_buffer: TextBuffer::default(),
             command_buffer: TextBuffer::default(),
+            tick_icons,
+            tick_index: 0,
             providers: config.providers,
             provider_index,
+            tools,
             mode: Mode::Prompt,
-            system_prompt: config.system_prompt,
-            response_phase: ResponsePhase::Finished,
+            tool_stage: ToolCallStage::Finished,
+            resp_stage: ResponseStage::Finished,
             should_exit: false,
         })
     }
-}
 
-impl Exchange {
-    pub fn new(prompt: String, response: String) -> Self {
-        Self { prompt, response }
-    }
-}
-
-impl Notification {
-    pub fn set(&mut self, content: &str) {
-        self.content.clear();
-        self.content.push_str(content);
+    pub fn model(&self) -> &str {
+        &self.providers[self.provider_index].model
     }
 }

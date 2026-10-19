@@ -8,7 +8,7 @@ use unicode_width::UnicodeWidthStr;
 
 use super::Widget;
 use crate::state::buffer::Cursor;
-use crate::tui::chatstream::textwrap::wrap_line;
+use crate::tui::stream::textwrap::wrap_line;
 
 pub struct TextBuffer<'a> {
     lines: Vec<&'a str>,

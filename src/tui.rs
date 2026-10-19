@@ -11,13 +11,13 @@ use ratatui::layout::{Constraint, Layout};
 
 use crate::state::State;
 
-mod chatstream;
 mod separator;
-mod statusline;
+mod status;
+mod stream;
 
-use chatstream::ChatStream;
 use separator::Separator;
-use statusline::StatusLine;
+use status::StatusLine;
+use stream::MessageStream;
 
 pub struct Tui {
     terminal: Terminal<CrosstermBackend<Stdout>>,
@@ -47,7 +47,7 @@ impl Tui {
             ])
             .areas(frame.area());
 
-            ChatStream::render(state, session_area, frame);
+            MessageStream::render(state, session_area, frame);
             Separator::render(separator_area, frame);
             StatusLine::render(state, statusline_area, frame);
         })?;
