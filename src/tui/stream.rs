@@ -61,7 +61,7 @@ impl MessageStream {
                     }
                     _ => &message.content,
                 },
-                _ => unreachable!("only assistant message or tool message should be staged"),
+                _ => unreachable!("staged message should be assistant message or tool message"),
             };
 
             if let Ok(widget) = Paragraph::build(content, area.width as usize) {
