@@ -6,7 +6,7 @@ use ratatui::text::Span;
 use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
 
 use super::Widget;
-use crate::tui::chatstream::textwrap::wrap_line;
+use crate::tui::stream::textwrap::wrap_line;
 
 pub struct Prompt<'a> {
     lines: Vec<&'a str>,

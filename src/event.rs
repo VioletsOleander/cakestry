@@ -1,5 +1,11 @@
+use anyhow::Result;
+
 pub mod handler;
 pub mod service;
+
+pub struct ToolEvent {
+    result: Result<String>,
+}
 
 #[derive(Debug)]
 pub struct TickEvent {

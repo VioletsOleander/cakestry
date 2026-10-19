@@ -1,13 +1,15 @@
 use anyhow::Result;
 use async_openai::types::responses::{
-    EasyInputContent, EasyInputMessage, EasyInputMessageArgs, Role,
+    EasyInputContent, EasyInputMessageArgs, FunctionCallOutput, FunctionCallOutputItemParam,
+    InputItem, InputParam, Item, Role,
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind};
 use crossterm::terminal;
 
 use crate::command::CommandHandler;
 use crate::event::service::{ResponseEventService, TickEventService};
-use crate::state::{Exchange, Mode, ResponsePhase, State};
+use crate::state::message::{Message, MessageSource};
+use crate::state::{Mode, ResponseStage, State};
 
 pub struct TerminalEventHandler {
     resp_service: ResponseEventService,
@@ -190,16 +192,25 @@ impl TerminalEventHandler {
     }
 
     fn submit_prompt(&self, state: &mut State) {
-        if matches!(state.response_phase, ResponsePhase::Finished)
+        if matches!(state.resp_stage, ResponseStage::Finished)
             && let Some(prompt) = state.prompt_buffer.take_content()
         {
-            let messages = make_messages(prompt.clone(), state);
-            let model = state.providers[state.provider_index].model.clone();
+            state
+                .message_store
+                .commit(Message::new(MessageSource::Role(Role::User), prompt));
 
-            self.resp_service.create_responses(messages, model);
+            state.message_store.stage(Message::new(
+                MessageSource::Role(Role::Assistant),
+                String::new(),
+            ));
 
-            state.response_phase = ResponsePhase::Created;
-            state.exchanges.push(Exchange::new(prompt, String::new()));
+            self.resp_service.create_responses(
+                make_input(state),
+                state.tools.clone(),
+                state.model().to_string(),
+            );
+
+            state.resp_stage = ResponseStage::Created;
 
             self.tick_service.run();
         }
@@ -212,25 +223,30 @@ impl TerminalEventHandler {
     }
 }
 
-fn make_messages(prompt: String, state: &State) -> Vec<EasyInputMessage> {
-    let mut messages = Vec::with_capacity(2 * state.exchanges.len() + 2);
+fn make_input(state: &State) -> InputParam {
+    let input_items = state
+        .message_store
+        .commits
+        .iter()
+        .map(|message| match &message.source {
+            MessageSource::Role(role) => InputItem::EasyMessage(
+                // Message build error implies code logic error and therefore is unrecoverable.
+                EasyInputMessageArgs::default()
+                    .role(*role)
+                    .content(EasyInputContent::Text(message.content.clone()))
+                    .build()
+                    .expect("role and content should be enough to make EasyInputMessage."),
+            ),
+            MessageSource::Tool { call_id } => {
+                InputItem::Item(Item::FunctionCallOutput(FunctionCallOutputItemParam {
+                    call_id: call_id.clone(),
+                    output: FunctionCallOutput::Text(message.content.clone()),
+                    id: None,
+                    status: None,
+                }))
+            }
+        })
+        .collect();
 
-    messages.push(make_message(Role::System, state.system_prompt.to_string()));
-    for exchange in &state.exchanges {
-        messages.push(make_message(Role::User, exchange.prompt.clone()));
-        messages.push(make_message(Role::Assistant, exchange.response.clone()));
-    }
-    messages.push(make_message(Role::User, prompt));
-
-    messages
-}
-
-fn make_message(role: Role, content: String) -> EasyInputMessage {
-    // Here, `expect` is used because message build error implies code logic error
-    // and therefore is unrecoverable.
-    EasyInputMessageArgs::default()
-        .role(role)
-        .content(EasyInputContent::Text(content))
-        .build()
-        .expect("role and content should be enough to make EasyInputMessage.")
+    InputParam::Items(input_items)
 }

@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_openai::Client;
 use async_openai::config::OpenAIConfig;
 use async_openai::error::OpenAIError;
-use async_openai::types::responses::{CreateResponseArgs, EasyInputMessage, ResponseStreamEvent};
+use async_openai::types::responses::{CreateResponseArgs, InputParam, ResponseStreamEvent, Tool};
 use crossbeam_channel::Sender;
 use futures::stream::StreamExt;
 use tokio::runtime::{Builder, Runtime};
@@ -36,15 +36,17 @@ impl ResponseEventService {
         })
     }
 
-    pub fn create_responses(&self, messages: Vec<EasyInputMessage>, model: String) {
-        // Here, `expect` is used because request build error implies code logic error
-        // and therefore is unrecoverable.
+    pub fn create_responses(&self, input: InputParam, tools: Vec<Tool>, model: String) {
+        // Request build error implies code logic error and therefore is unrecoverable.
         let request = CreateResponseArgs::default()
             .model(model)
-            .input(messages)
+            .input(input)
+            .tools(tools)
             .stream(true)
             .build()
-            .expect("model and messages should be enough to make CreaseReponse");
+            .expect("model, input and tools should be enough to make CreaseReponse");
+
+        tracing::debug!("the request to be sent is {:#?}", request);
 
         let client = self.client.clone();
         let sender = self.sender.clone();

@@ -1,17 +1,22 @@
 use async_openai::error::OpenAIError;
-use async_openai::types::responses::{OutputItem, ResponseStreamEvent};
+use async_openai::types::responses::{OutputItem, ResponseStreamEvent, Role};
 use crossbeam_channel::Sender;
 
 use crate::event::TickStopEvent;
-use crate::state::{ResponsePhase, State};
+use crate::event::service::ToolService;
+use crate::state::{ResponseStage, State};
 
 pub struct ResponseEventHandler {
     sender: Sender<TickStopEvent>,
+    tool_service: ToolService,
 }
 
 impl ResponseEventHandler {
-    pub fn new(sender: Sender<TickStopEvent>) -> Self {
-        Self { sender }
+    pub fn new(tool_service: ToolService, sender: Sender<TickStopEvent>) -> Self {
+        Self {
+            tool_service,
+            sender,
+        }
     }
 
     pub fn handle(&self, event: Result<ResponseStreamEvent, OpenAIError>, state: &mut State) {
@@ -20,48 +25,45 @@ impl ResponseEventHandler {
                 ResponseStreamEvent::ResponseOutputItemAdded(event) => match event.item {
                     OutputItem::Message(_) => {
                         self.stop_tick();
-                        self.get_last_response(state).clear();
-
-                        state.response_phase = ResponsePhase::Answering;
+                        state.resp_stage = ResponseStage::Answering;
                     }
                     OutputItem::Reasoning(_) => {
-                        state.response_phase = ResponsePhase::Reasoning;
+                        state.resp_stage = ResponseStage::Reasoning;
                     }
                     _ => (),
                 },
                 ResponseStreamEvent::ResponseOutputTextDelta(event) => {
-                    self.get_last_response(state).push_str(&event.delta);
+                    state
+                        .message_store
+                        .stage_delta(&event.delta)
+                        .expect("there should be a staged message");
                 }
+                ResponseStreamEvent::ResponseFunctionCallArgumentsDelta(event) => {}
+                ResponseStreamEvent::ResponseFunctionCallArgumentsDone(event) => {}
                 ResponseStreamEvent::ResponseCompleted(_) => {
-                    state.response_phase = ResponsePhase::Finished;
+                    state
+                        .message_store
+                        .commit_staged()
+                        .expect("there should be a staged message");
+                    state.resp_stage = ResponseStage::Finished;
                 }
                 ResponseStreamEvent::ResponseIncomplete(_) => {
-                    state.response_phase = ResponsePhase::Finished;
-                    state.notification.set("response incompelte");
+                    state.message_store.abort_staged();
+                    state.resp_stage = ResponseStage::Finished;
                 }
                 ResponseStreamEvent::ResponseFailed(_) => {
-                    state.response_phase = ResponsePhase::Finished;
-                    state.notification.set("response failed");
+                    state.message_store.abort_staged();
+                    state.resp_stage = ResponseStage::Finished;
                 }
                 _ => (),
             },
-            Err(err) => {
+            Err(_) => {
                 self.stop_tick();
 
-                state.response_phase = ResponsePhase::Finished;
-                state.notification.set(err.to_string().as_str());
+                state.message_store.abort_staged();
+                state.resp_stage = ResponseStage::Finished;
             }
         };
-    }
-
-    fn get_last_response<'a>(&self, state: &'a mut State) -> &'a mut String {
-        // The request submitter must have created a new exchange,
-        // otherwise it is code logic error.
-        &mut state
-            .exchanges
-            .last_mut()
-            .expect("there should be at least one existing exchange.")
-            .response
     }
 
     fn stop_tick(&self) {

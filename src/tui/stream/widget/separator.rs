@@ -1,27 +1,20 @@
-use anyhow::{Result, anyhow};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::{Fill, Widget as RatatuiWidget};
 
 use super::Widget;
 
-pub struct SpaceLine {
+pub struct Separator {
     scroll: u16,
 }
 
-impl SpaceLine {
-    pub fn build(width: usize) -> Result<Self> {
-        if width > 0 {
-            Ok(Self { scroll: 0 })
-        } else {
-            Err(anyhow!(
-                "expected to construct spaceline with width at least 1"
-            ))
-        }
+impl Separator {
+    pub fn new() -> Self {
+        Self { scroll: 0 }
     }
 }
 
-impl Widget for SpaceLine {
+impl Widget for Separator {
     fn scroll(self, scroll: u16) -> Self {
         Self { scroll }
     }
