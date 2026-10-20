@@ -13,7 +13,9 @@ use config::Config;
 use event::handler::{
     ResponseEventHandler, TerminalEventHandler, TickEventHandler, ToolEventHandler,
 };
-use event::service::{ResponseEventService, TerminalEventService, TickEventService, ToolService};
+use event::service::{
+    ResponseEventService, TerminalEventService, TickEventService, ToolEventService,
+};
 use state::State;
 use tui::Tui;
 
@@ -46,11 +48,11 @@ fn main() -> Result<()> {
 
     let term_service = TerminalEventService::build()?;
     let resp_service = ResponseEventService::build(&state, resp_tx)?;
-    let tool_service = ToolService::new();
+    let tool_service = ToolEventService::new(&state, tool_tx);
     let tick_service = TickEventService::new(tick_tx, tickstop_rx);
 
-    let term_handler = TerminalEventHandler::new(resp_service, tick_service);
-    let resp_handler = ResponseEventHandler::new(tool_service, tickstop_tx);
+    let term_handler = TerminalEventHandler::new(&resp_service, &tick_service);
+    let resp_handler = ResponseEventHandler::new(tool_service, &tick_service, tickstop_tx);
     let tool_handler = ToolEventHandler::new();
     let tick_handler = TickEventHandler::new();
 

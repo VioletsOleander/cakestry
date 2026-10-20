@@ -6,4 +6,4 @@ mod tool;
 pub use response::ResponseEventService;
 pub use terminal::TerminalEventService;
 pub use tick::TickEventService;
-pub use tool::ToolService;
+pub use tool::ToolEventService;

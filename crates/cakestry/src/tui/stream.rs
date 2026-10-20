@@ -40,34 +40,27 @@ impl MessageStream {
         );
         let mut window = Range::new(0, 0);
 
-        for message in &state.message_store.commits {
+        for message in &state.messages {
             window = render_message(message, view, window, area, buf);
         }
 
-        if let Some(message) = &state.message_store.staged {
-            let content = match message.source {
-                MessageSource::Role(Role::Assistant) => match state.resp_stage {
-                    ResponseStage::Created => {
-                        &format!("{} {}", state.tick_icons[state.tick_index], "waiting")
-                    }
-                    ResponseStage::Reasoning => {
-                        &format!("{} {}", state.tick_icons[state.tick_index], "thinking")
-                    }
-                    _ => &message.content,
-                },
-                MessageSource::Tool { .. } => match state.tool_stage {
-                    ToolCallStage::Created => {
-                        &format!("{} {}", state.tick_icons[state.tick_index], "calling")
-                    }
-                    _ => &message.content,
-                },
-                _ => unreachable!("staged message should be assistant message or tool message"),
-            };
+        let tick_content = match state.resp_stage {
+            ResponseStage::Create => Some(format!(
+                "{} {}",
+                state.tick_icons[state.tick_index], "thinking"
+            )),
+            ResponseStage::Think => Some(format!(
+                "{} {}",
+                state.tick_icons[state.tick_index], "thinking"
+            )),
+            _ => None,
+        };
 
-            if let Ok(widget) = Paragraph::build(content, area.width as usize) {
-                window = render_widget(widget, view, window, area, buf);
-                window = render_widget(Separator::new(), view, window, area, buf);
-            }
+        if let Some(tick_content) = tick_content
+            && let Ok(widget) = Paragraph::build(&tick_content, area.width as usize)
+        {
+            window = render_widget(widget, view, window, area, buf);
+            window = render_widget(Separator::new(), view, window, area, buf);
         }
 
         if let Ok(textbuffer) = TextBuffer::build(

@@ -11,13 +11,13 @@ use crate::event::service::{ResponseEventService, TickEventService};
 use crate::state::message::{Message, MessageSource};
 use crate::state::{Mode, ResponseStage, State};
 
-pub struct TerminalEventHandler {
-    resp_service: ResponseEventService,
-    tick_service: TickEventService,
+pub struct TerminalEventHandler<'a> {
+    resp_service: &'a ResponseEventService,
+    tick_service: &'a TickEventService,
 }
 
-impl TerminalEventHandler {
-    pub fn new(resp_service: ResponseEventService, tick_service: TickEventService) -> Self {
+impl<'a> TerminalEventHandler<'a> {
+    pub fn new(resp_service: &'a ResponseEventService, tick_service: &'a TickEventService) -> Self {
         Self {
             resp_service,
             tick_service,
@@ -192,17 +192,12 @@ impl TerminalEventHandler {
     }
 
     fn submit_prompt(&self, state: &mut State) {
-        if matches!(state.resp_stage, ResponseStage::Finished)
+        if matches!(state.resp_stage, ResponseStage::Finish)
             && let Some(prompt) = state.prompt_buffer.take_content()
         {
             state
-                .message_store
-                .commit(Message::new(MessageSource::Role(Role::User), prompt));
-
-            state.message_store.stage(Message::new(
-                MessageSource::Role(Role::Assistant),
-                String::new(),
-            ));
+                .messages
+                .push(Message::new(MessageSource::Role(Role::User), prompt));
 
             self.resp_service.create_responses(
                 make_input(state),
@@ -210,7 +205,7 @@ impl TerminalEventHandler {
                 state.model().to_string(),
             );
 
-            state.resp_stage = ResponseStage::Created;
+            state.resp_stage = ResponseStage::Create;
 
             self.tick_service.run();
         }
@@ -225,8 +220,7 @@ impl TerminalEventHandler {
 
 fn make_input(state: &State) -> InputParam {
     let input_items = state
-        .message_store
-        .commits
+        .messages
         .iter()
         .map(|message| match &message.source {
             MessageSource::Role(role) => InputItem::EasyMessage(
