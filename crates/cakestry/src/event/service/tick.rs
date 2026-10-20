@@ -5,6 +5,7 @@ use crossbeam_channel::{Receiver, Sender, TryRecvError};
 
 use crate::event::{TickEvent, TickStopEvent};
 
+#[derive(Clone)]
 pub struct TickEventService {
     interval: u64,
     sender: Sender<TickEvent>,
@@ -39,15 +40,14 @@ impl TickEventService {
                         tracing::debug!("tick stop event received, tick thread exit");
                         break;
                     }
-                    Err(err) => {
-                        if err == TryRecvError::Disconnected {
-                            tracing::debug!(
-                                "tick stop sender unexpectedly disconnected due to {}",
-                                err
-                            );
-                            break;
-                        }
+                    Err(err) if err == TryRecvError::Disconnected => {
+                        tracing::debug!(
+                            "tick stop sender unexpectedly disconnected due to {}",
+                            err
+                        );
+                        break;
                     }
+                    _ => (),
                 }
 
                 thread::sleep(interval);

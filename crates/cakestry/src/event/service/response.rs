@@ -46,7 +46,7 @@ impl ResponseEventService {
             .build()
             .expect("model, input and tools should be enough to make CreaseReponse");
 
-        tracing::debug!("the request to be sent is {:#?}", request);
+        tracing::debug!("the request to be sent is: {:#?}", request);
 
         let client = self.client.clone();
         let sender = self.sender.clone();

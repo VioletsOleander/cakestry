@@ -7,7 +7,7 @@ pub mod buffer;
 pub mod message;
 
 use buffer::TextBuffer;
-use message::{Message, MessageSource, MessageStore};
+use message::{Message, MessageSource};
 
 #[derive(Clone, Copy)]
 pub enum Mode {
@@ -18,24 +18,24 @@ pub enum Mode {
 
 #[derive(Clone, Copy)]
 pub enum ResponseStage {
-    Created,
-    Reasoning,
-    Answering,
-    Finished,
+    Create,
+    Think,
+    Answer,
+    Finish,
 }
 
 pub enum ToolCallStage {
-    Created,
-    Finished,
+    Create,
+    Finish,
 }
 
-pub struct State<'a> {
+pub struct State {
     // Rendering and Storage.
-    pub message_store: MessageStore,
+    pub messages: Vec<Message>,
     pub stream_scroll: usize,
     pub prompt_buffer: TextBuffer,
     pub command_buffer: TextBuffer,
-    pub tick_icons: [&'a str; 10],
+    pub tick_icons: [&'static str; 10],
     pub tick_index: usize,
 
     // Dynamic Configuration.
@@ -60,12 +60,12 @@ impl Mode {
     }
 }
 
-impl<'a> State<'a> {
+impl State {
     pub fn build(config: Config) -> Result<Self> {
-        let message_store = MessageStore::new(vec![Message::new(
+        let messages = vec![Message::new(
             MessageSource::Role(Role::System),
             config.system_prompt,
-        )]);
+        )];
 
         let provider_index = config
             .providers
@@ -88,7 +88,7 @@ impl<'a> State<'a> {
         let tick_icons = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
         Ok(Self {
-            message_store,
+            messages,
             stream_scroll: 0,
             prompt_buffer: TextBuffer::default(),
             command_buffer: TextBuffer::default(),
@@ -98,8 +98,8 @@ impl<'a> State<'a> {
             provider_index,
             tools,
             mode: Mode::Prompt,
-            tool_stage: ToolCallStage::Finished,
-            resp_stage: ResponseStage::Finished,
+            tool_stage: ToolCallStage::Finish,
+            resp_stage: ResponseStage::Finish,
             should_exit: false,
         })
     }
