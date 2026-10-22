@@ -48,13 +48,14 @@ In each file, write code in groups, with the following order:
 1. Imports
 2. Submodule declarations
 3. Imports from submodules
-4. Type aliases
-5. Trait definitions.
-6. Enumeration declarations
-7. Enumeration implementation blocks
-8. Struct declarations
-9. Struct implementation blocks
-10. Functions
+4. Constant definitions.
+5. Type aliases
+6. Trait definitions.
+7. Enumeration declarations
+8. Enumeration implementation blocks
+9. Struct declarations
+10. Struct implementation blocks
+11. Functions
 
 In each group, put `pub` items first.
 
@@ -66,6 +67,9 @@ use std::fs;
 mod submodule;
 
 use submodule::foo;
+
+pub const FOO: usize = 0;
+const BAR: usize = 0;
 
 pub type PubFooType = foo::PubFooType;
 type FooType = foo::FooType;
