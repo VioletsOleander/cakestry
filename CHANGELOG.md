@@ -1,3 +1,33 @@
+## [0.3.0] - 2026-10-23
+
+### Summary
+
+The codebase is significantly refactored (again) for better maintainability.
+
+Tool calling support is introduced, as well as a simple, proof-of-concept tool cakestry-clock.
+
+### Features
+
+- *(tool)* Add cakestry-clock ([ba29128](https://github.com/VioletsOleander/cakestry/commit/ba29128b21c3f0de96bd49f8359e562116d6d5ed))
+- Finish preliminary tool calling support ([5e9b7ba](https://github.com/VioletsOleander/cakestry/commit/5e9b7baceea79fdf545c76e6d9bbec1764185302))
+
+### Bug Fixes
+
+- Re-add Cursor::new for test using ([c72d650](https://github.com/VioletsOleander/cakestry/commit/c72d65025bb22306966530d7431a752ca96bd2de))
+
+### Refactor
+
+- Improve event handling, state storage and rendering to prepare for tool incorporation ([243d400](https://github.com/VioletsOleander/cakestry/commit/243d400b5d0780dc1f3119c7fc35d9175d798312))
+- Migrate to workspace structure to prepare for tool incorporation ([200c686](https://github.com/VioletsOleander/cakestry/commit/200c68699b68fcf50c5b1ba2bbf884a0565addc8))
+
+### Documentation
+
+- Add const order to style ([70ae3b7](https://github.com/VioletsOleander/cakestry/commit/70ae3b730b8b686334c72805cc3ddebcf899d236))
+- Update release workflow for workspace ([bf702df](https://github.com/VioletsOleander/cakestry/commit/bf702dfc857a8106f409ffeda7443852baaf9673))
+
+### Miscellaneous Tasks
+
+- Update unreachable message ([c18e5f6](https://github.com/VioletsOleander/cakestry/commit/c18e5f669d63f3cba715d504a0cce75232b9efe7))
 ## [0.2.0] - 2026-10-17
 
 ### Summary
@@ -67,11 +97,11 @@ UI is slightly improved by introducing a spinner animation as waiting indicator.
 - Fix typos ([f585ef7](https://github.com/VioletsOleander/cakestry/commit/f585ef7e0884f85e848e2d499668ee045cd85df9))
 - Add test workflow ([87e4b06](https://github.com/VioletsOleander/cakestry/commit/87e4b060783f95e70ad6d822b7dd60244b73f0e3))
 - Update cargo dist ([cde9618](https://github.com/VioletsOleander/cakestry/commit/cde96180aaef56d81af610bf06e395c4044ced10))
+- Release v0.2.0 ([b6908dc](https://github.com/VioletsOleander/cakestry/commit/b6908dc2a75fc98b6d45dc8a29c168d07ebefaf9))
 
 ### Revert
 
 - "ci: temporarily enable dispatch release" ([cfb9371](https://github.com/VioletsOleander/cakestry/commit/cfb937145aaf298b3853a7ade52319a086e43323))
-
 ## [0.1.0] - 2026-08-22
 
 ### Summary
