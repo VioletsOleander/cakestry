@@ -221,6 +221,12 @@ impl Default for TextBuffer {
 mod test {
     use super::*;
 
+    impl Cursor {
+        pub fn new(line: usize, char: usize) -> Self {
+            Self { line, char }
+        }
+    }
+
     #[test]
     fn delete_char() {
         let line = "Hello world";
