@@ -217,12 +217,6 @@ impl Default for TextBuffer {
     }
 }
 
-impl Cursor {
-    pub fn new(line: usize, char: usize) -> Self {
-        Self { line, char }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;

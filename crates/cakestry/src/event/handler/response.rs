@@ -1,28 +1,20 @@
 use async_openai::error::OpenAIError;
 use async_openai::types::responses::{OutputItem, ResponseStreamEvent, Role};
-use crossbeam_channel::Sender;
 
-use crate::event::TickStopEvent;
 use crate::event::service::{TickEventService, ToolEventService};
-use crate::state::message::{Message, MessageSource};
+use crate::state::entry::{LastMessage, LastToolCall, Message, ToolCall};
 use crate::state::{ResponseStage, State, ToolCallStage};
 
 pub struct ResponseEventHandler<'a> {
-    sender: Sender<TickStopEvent>,
     tick_service: &'a TickEventService,
     tool_service: ToolEventService,
 }
 
 impl<'a> ResponseEventHandler<'a> {
-    pub fn new(
-        tool_service: ToolEventService,
-        tick_service: &'a TickEventService,
-        sender: Sender<TickStopEvent>,
-    ) -> Self {
+    pub fn new(tool_service: ToolEventService, tick_service: &'a TickEventService) -> Self {
         Self {
             tool_service,
             tick_service,
-            sender,
         }
     }
 
@@ -30,76 +22,75 @@ impl<'a> ResponseEventHandler<'a> {
         // A stream should either ends with item message + tool call or tool call. Message item is
         // supposed to never appear after a tool call item.
         match event {
-            Ok(event) => match event {
-                ResponseStreamEvent::ResponseOutputItemAdded(event) => match event.item {
-                    OutputItem::Reasoning(_) => {
-                        state.resp_stage = ResponseStage::Think;
-                    }
-                    OutputItem::Message(_) => {
-                        self.send_tickstop();
-
-                        state.messages.push(Message::new(
-                            MessageSource::Role(Role::Assistant),
-                            String::new(),
-                        ));
-                        state.resp_stage = ResponseStage::Answer;
-                    }
-                    OutputItem::FunctionCall(call) => {
-                        self.send_tickstop();
-
-                        state.messages.push(Message::new(
-                            MessageSource::Tool {
-                                call_id: call.call_id,
-                            },
-                            String::new(),
-                        ));
-                        state.resp_stage = ResponseStage::Answer;
-                    }
-                    _ => (),
-                },
-                ResponseStreamEvent::ResponseOutputTextDelta(event) => {
-                    // Last message retrieval failure is code logic error therefore is
-                    // unrecoverable.
-                    state
-                        .messages
-                        .last_mut()
-                        .expect("there should be a assistant message in the last")
-                        .push_str(&event.delta);
-                }
-                ResponseStreamEvent::ResponseOutputItemDone(event) => match event.item {
-                    OutputItem::FunctionCall(call) => {
-                        let name = call.name;
-                        let arguments = call.arguments;
-
-                        self.tool_service.run(name, arguments);
-                    }
-                    _ => (),
-                },
-                ResponseStreamEvent::ResponseCompleted(_) => {
-                    state.resp_stage = ResponseStage::Finish;
-                }
-                ResponseStreamEvent::ResponseIncomplete(_) => {
-                    state.resp_stage = ResponseStage::Finish;
-                }
-                ResponseStreamEvent::ResponseFailed(_) => {
-                    state.resp_stage = ResponseStage::Finish;
-                }
-                _ => (),
-            },
-            Err(_) => {
-                self.send_tickstop();
-
-                state.resp_stage = ResponseStage::Finish;
-            }
+            Ok(event) => self.handle_event(event, state),
+            Err(error) => self.handle_error(error, state),
         };
     }
 
-    fn send_tickstop(&self) {
-        // If thread blocking `send` is used here, deadlock will possibly happen when the channel is
-        // zero capacity: the main thread waiting for the tick thread to receive TickStopEvent, the
-        // tick thread wait for the main thread to receive TickEvent.
-        self.sender
-            .try_send(TickStopEvent)
-            .unwrap_or_else(|err| tracing::debug!("failed to send tick stop event due to {}", err));
+    fn handle_event(&self, event: ResponseStreamEvent, state: &mut State) {
+        match event {
+            ResponseStreamEvent::ResponseOutputItemAdded(event) => match event.item {
+                OutputItem::Reasoning(_) => {
+                    state.response_stage = ResponseStage::Think;
+                }
+                OutputItem::Message(message) => {
+                    self.stop_tick(state);
+
+                    state.entries.push(Message::from(message).into());
+                    state.response_stage = ResponseStage::Answer;
+                }
+                OutputItem::FunctionCall(call) => {
+                    self.stop_tick(state);
+
+                    state.entries.push(ToolCall::from(call).into());
+                    state.response_stage = ResponseStage::Answer;
+                }
+                _ => (),
+            },
+            ResponseStreamEvent::ResponseOutputTextDelta(event) => {
+                state
+                    .entries
+                    .last_message(Role::Assistant)
+                    .push_content(&event.delta);
+            }
+            ResponseStreamEvent::ResponseFunctionCallArgumentsDelta(event) => {
+                state.entries.last_toolcall().push_arguments(&event.delta);
+            }
+            ResponseStreamEvent::ResponseOutputItemDone(event) => {
+                if let OutputItem::FunctionCall(call) = event.item {
+                    self.tool_service
+                        .run(call.call_id, call.name, call.arguments);
+                    self.tick_service.run();
+
+                    state.response_stage = ResponseStage::Finish;
+                    state.toolcall_stage = ToolCallStage::Create;
+                }
+            }
+            ResponseStreamEvent::ResponseCompleted(_) => {
+                state.response_stage = ResponseStage::Finish;
+            }
+            ResponseStreamEvent::ResponseIncomplete(_) => {
+                state.response_stage = ResponseStage::Finish;
+            }
+            ResponseStreamEvent::ResponseFailed(_) => {
+                state.response_stage = ResponseStage::Finish;
+            }
+            _ => (),
+        }
+    }
+
+    fn handle_error(&self, _error: OpenAIError, state: &mut State) {
+        self.stop_tick(state);
+        state.response_stage = ResponseStage::Finish;
+    }
+
+    fn stop_tick(&self, state: &State) {
+        // Match response stage to avoid sending TickStopEvent multiple times.
+        if matches!(
+            state.response_stage,
+            ResponseStage::Create | ResponseStage::Think
+        ) {
+            self.tick_service.stop();
+        }
     }
 }

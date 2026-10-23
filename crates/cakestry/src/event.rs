@@ -1,10 +1,13 @@
-use anyhow::Result;
+use std::process::Output;
+
+use anyhow::Error;
 
 pub mod handler;
 pub mod service;
 
-pub struct ToolEvent {
-    result: Result<String>,
+pub enum ToolEvent {
+    Success { call_id: String, output: Output },
+    Failure { call_id: String, error: Error },
 }
 
 #[derive(Debug)]
