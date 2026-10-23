@@ -8,6 +8,7 @@ pub struct Config {
     pub system_prompt: String,
     pub provider: String,
     pub providers: Vec<Provider>,
+    pub tools: Option<Vec<Tool>>,
 }
 
 impl Config {
@@ -29,4 +30,11 @@ pub struct Provider {
     pub base_url: String,
     /// Example: "sk-xxx", TODO: use keyring to makes this as secret.
     pub api_key: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Tool {
+    pub name: String,
+    pub parameters: Option<String>,
+    pub description: Option<String>,
 }

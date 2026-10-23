@@ -1,66 +1,45 @@
-use anyhow::{Result, anyhow};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Color, Style};
+use ratatui::layout::Rect;
+use ratatui::style::Style;
 use ratatui::text::Span;
-use ratatui::widgets::{Paragraph, Widget as RatatuiWidget};
+use ratatui::widgets::Widget;
 
-use super::Widget;
-use crate::tui::stream::textwrap::wrap_line;
+use super::Scroll;
 
-pub struct Prompt<'a> {
-    lines: Vec<&'a str>,
+pub struct Prompt {
+    style: Style,
     scroll: u16,
 }
 
-impl<'a> Prompt<'a> {
-    pub fn build(prompt: &'a str, width: usize) -> Result<Self> {
-        // 1 marker width + 1 space = 2
-        let prefix_width = 2;
+impl Prompt {
+    pub fn new(style: Style) -> Self {
+        Self { style, scroll: 0 }
+    }
+}
 
-        match width.checked_sub(prefix_width) {
-            Some(text_width) => Ok(Self {
-                lines: prompt
-                    .lines()
-                    .flat_map(|line| wrap_line(line, text_width))
-                    .collect(),
-                scroll: 0,
-            }),
-            None => Err(anyhow!("failed to construct prompt view with given width")),
+impl Widget for Prompt {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        for i in 0..area.height {
+            let span_area = Rect {
+                y: area.y + i,
+                height: 1,
+                ..area
+            };
+
+            if i == 0 && self.scroll == 0 {
+                Span::styled(">", self.style).render(span_area, buf);
+            } else {
+                Span::styled(".", self.style).render(span_area, buf);
+            }
         }
     }
 }
 
-impl<'a> Widget for Prompt<'a> {
+impl Scroll for Prompt {
     fn scroll(self, scroll: u16) -> Self {
         Self {
-            lines: self.lines,
+            style: self.style,
             scroll,
         }
-    }
-
-    fn height(&self) -> usize {
-        self.lines.len()
-    }
-
-    fn render(&self, area: Rect, buf: &mut Buffer) {
-        let [spans_area, paragraph_area] =
-            Layout::horizontal([Constraint::Length(1), Constraint::Fill(1)])
-                .spacing(1)
-                .areas(area);
-
-        for i in 0..spans_area.height {
-            let span_area = Rect::new(spans_area.x, spans_area.y + i, spans_area.width, 1);
-
-            if i == 0 && self.scroll == 0 {
-                Span::styled(">", Style::default().fg(Color::Blue)).render(span_area, buf);
-            } else {
-                Span::styled(".", Style::default().fg(Color::Blue)).render(span_area, buf);
-            }
-        }
-
-        Paragraph::new(self.lines.as_slice())
-            .scroll((self.scroll, 0))
-            .render(paragraph_area, buf);
     }
 }

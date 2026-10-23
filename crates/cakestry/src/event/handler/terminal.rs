@@ -1,15 +1,12 @@
 use anyhow::Result;
-use async_openai::types::responses::{
-    EasyInputContent, EasyInputMessageArgs, FunctionCallOutput, FunctionCallOutputItemParam,
-    InputItem, InputParam, Item, Role,
-};
+use async_openai::types::responses::Role;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind};
 use crossterm::terminal;
 
 use crate::command::CommandHandler;
 use crate::event::service::{ResponseEventService, TickEventService};
-use crate::state::message::{Message, MessageSource};
-use crate::state::{Mode, ResponseStage, State};
+use crate::state::entry::Message;
+use crate::state::{Mode, ResponseStage, State, ToolCallStage};
 
 pub struct TerminalEventHandler<'a> {
     resp_service: &'a ResponseEventService,
@@ -33,13 +30,8 @@ impl<'a> TerminalEventHandler<'a> {
             },
             Event::Mouse(mouse) => match mouse.kind {
                 // Step size 3 is comfortable, step size 1 feels too sluggish.
-                MouseEventKind::ScrollUp => {
-                    state.stream_scroll = state.stream_scroll.saturating_sub(3);
-                }
-
-                MouseEventKind::ScrollDown => {
-                    state.stream_scroll = state.stream_scroll.saturating_add(3);
-                }
+                MouseEventKind::ScrollUp => scroll_up(state, 3),
+                MouseEventKind::ScrollDown => scroll_down(state, 3),
                 _ => (),
             },
             _ => (),
@@ -137,52 +129,28 @@ impl<'a> TerminalEventHandler<'a> {
                 // CTRL-c: Exit scroll mode, enter command mode.
                 KeyCode::Char('c') => state.mode = Mode::Command,
                 // CTRL-u: Scroll up half screen.
-                KeyCode::Char('u') => {
-                    let lines = terminal::size()?.1 / 2;
-                    state.stream_scroll = state.stream_scroll.saturating_sub(lines as usize);
-                }
+                KeyCode::Char('u') => scroll_up(state, (terminal::size()?.1 / 2) as usize),
                 // CTRL-d: Scroll down half screen.
-                KeyCode::Char('d') => {
-                    let lines = terminal::size()?.1 / 2;
-                    state.stream_scroll = state.stream_scroll.saturating_add(lines as usize);
-                }
+                KeyCode::Char('d') => scroll_down(state, (terminal::size()?.1 / 2) as usize),
                 // Ctrl-y: Scroll up 1/4 screen.
-                KeyCode::Char('y') => {
-                    let lines = terminal::size()?.1 / 4;
-                    state.stream_scroll = state.stream_scroll.saturating_sub(lines as usize);
-                }
+                KeyCode::Char('y') => scroll_up(state, (terminal::size()?.1 / 4) as usize),
                 // Ctrl-e: Scroll down 1/4 screen.
-                KeyCode::Char('e') => {
-                    let lines = terminal::size()?.1 / 4;
-                    state.stream_scroll = state.stream_scroll.saturating_add(lines as usize);
-                }
+                KeyCode::Char('e') => scroll_down(state, (terminal::size()?.1 / 4) as usize),
                 // Ctrl-k: Scroll up 1 line.
-                KeyCode::Char('k') => {
-                    state.stream_scroll = state.stream_scroll.saturating_sub(1);
-                }
+                KeyCode::Char('k') => scroll_up(state, 1),
                 // Ctrl-j: Scroll down 1 line.
-                KeyCode::Char('j') => {
-                    state.stream_scroll = state.stream_scroll.saturating_add(1);
-                }
+                KeyCode::Char('j') => scroll_down(state, 1),
                 _ => (),
             },
             KeyModifiers::NONE => match key.code {
                 // Esc: Exit scroll mode, back to prompt mode.
-                KeyCode::Esc => {
-                    state.mode = Mode::Prompt;
-                }
+                KeyCode::Esc => state.mode = Mode::Prompt,
                 // i: Exit scroll mode, back to prompt mode.
-                KeyCode::Char('i') => {
-                    state.mode = Mode::Prompt;
-                }
+                KeyCode::Char('i') => state.mode = Mode::Prompt,
                 // Up: Scroll up one line.
-                KeyCode::Up => {
-                    state.stream_scroll = state.stream_scroll.saturating_sub(1);
-                }
+                KeyCode::Up => scroll_up(state, 1),
                 // Down: Scroll down one line.
-                KeyCode::Down => {
-                    state.stream_scroll = state.stream_scroll.saturating_add(1);
-                }
+                KeyCode::Down => scroll_down(state, 1),
                 _ => (),
             },
             _ => (),
@@ -192,22 +160,20 @@ impl<'a> TerminalEventHandler<'a> {
     }
 
     fn submit_prompt(&self, state: &mut State) {
-        if matches!(state.resp_stage, ResponseStage::Finish)
+        if matches!(state.response_stage, ResponseStage::Finish)
+            && matches!(state.toolcall_stage, ToolCallStage::Finish)
             && let Some(prompt) = state.prompt_buffer.take_content()
         {
-            state
-                .messages
-                .push(Message::new(MessageSource::Role(Role::User), prompt));
+            state.entries.push(Message::new(Role::User, prompt).into());
 
             self.resp_service.create_responses(
-                make_input(state),
+                state.input_param(),
                 state.tools.clone(),
                 state.model().to_string(),
             );
-
-            state.resp_stage = ResponseStage::Create;
-
             self.tick_service.run();
+
+            state.response_stage = ResponseStage::Create;
         }
     }
 
@@ -218,29 +184,10 @@ impl<'a> TerminalEventHandler<'a> {
     }
 }
 
-fn make_input(state: &State) -> InputParam {
-    let input_items = state
-        .messages
-        .iter()
-        .map(|message| match &message.source {
-            MessageSource::Role(role) => InputItem::EasyMessage(
-                // Message build error implies code logic error and therefore is unrecoverable.
-                EasyInputMessageArgs::default()
-                    .role(*role)
-                    .content(EasyInputContent::Text(message.content.clone()))
-                    .build()
-                    .expect("role and content should be enough to make EasyInputMessage."),
-            ),
-            MessageSource::Tool { call_id } => {
-                InputItem::Item(Item::FunctionCallOutput(FunctionCallOutputItemParam {
-                    call_id: call_id.clone(),
-                    output: FunctionCallOutput::Text(message.content.clone()),
-                    id: None,
-                    status: None,
-                }))
-            }
-        })
-        .collect();
+fn scroll_up(state: &mut State, value: usize) {
+    state.scroll = state.scroll.up(value);
+}
 
-    InputParam::Items(input_items)
+fn scroll_down(state: &mut State, value: usize) {
+    state.scroll = state.scroll.down(value);
 }

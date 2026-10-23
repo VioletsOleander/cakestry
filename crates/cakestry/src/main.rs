@@ -44,22 +44,21 @@ fn main() -> Result<()> {
     let (resp_tx, resp_rx) = bounded(16);
     let (tool_tx, tool_rx) = bounded(1);
     let (tick_tx, tick_rx) = bounded(1);
-    let (tickstop_tx, tickstop_rx) = bounded(1);
 
     let term_service = TerminalEventService::build()?;
     let resp_service = ResponseEventService::build(&state, resp_tx)?;
-    let tool_service = ToolEventService::new(&state, tool_tx);
-    let tick_service = TickEventService::new(tick_tx, tickstop_rx);
+    let tool_service = ToolEventService::new(tool_tx);
+    let tick_service = TickEventService::new(tick_tx);
 
     let term_handler = TerminalEventHandler::new(&resp_service, &tick_service);
-    let resp_handler = ResponseEventHandler::new(tool_service, &tick_service, tickstop_tx);
-    let tool_handler = ToolEventHandler::new();
+    let resp_handler = ResponseEventHandler::new(tool_service, &tick_service);
+    let tool_handler = ToolEventHandler::new(&resp_service, &tick_service);
     let tick_handler = TickEventHandler::new();
 
     term_service.run(term_tx);
 
     while !state.should_exit {
-        tui.render(&state)?;
+        tui.render(&mut state)?;
 
         select! {
             recv(term_rx) -> result => {

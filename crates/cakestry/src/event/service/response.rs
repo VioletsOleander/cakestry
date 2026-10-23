@@ -59,7 +59,11 @@ impl ResponseEventService {
                     while let Some(result) = stream.next().await {
                         tracing::debug!("received result: {:#?}", result);
 
-                        if sender.send(result).is_err() {
+                        if let Err(err) = sender.send(result) {
+                            tracing::debug!(
+                                "response stream event receiver unexpectedly disconnected due to {}",
+                                err
+                            );
                             break;
                         }
                     }

@@ -1,16 +1,13 @@
 #:schema https://www.schemastore.org/cargo.json
 
 [workspace]
-members = ["crates/cakestry"]
+members = ["crates/*"]
 resolver = "3"
 
 [workspace.package]
-version = "0.2.0"
-authors = ["VioletsOleander"]
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/VioletsOleander/cakestry"
-description = "An agent in the terminal"
 
 # The profile that 'dist' will build with
 [profile.dist]

@@ -17,7 +17,7 @@ mod stream;
 
 use separator::Separator;
 use status::StatusLine;
-use stream::MessageStream;
+use stream::WidgetStream;
 
 pub struct Tui {
     terminal: Terminal<CrosstermBackend<Stdout>>,
@@ -38,16 +38,16 @@ impl Tui {
         Ok(Tui { terminal })
     }
 
-    pub fn render(&mut self, state: &State) -> Result<()> {
+    pub fn render(&mut self, state: &mut State) -> Result<()> {
         self.terminal.draw(|frame| {
-            let [session_area, separator_area, statusline_area] = Layout::vertical([
+            let [stream_area, separator_area, statusline_area] = Layout::vertical([
                 Constraint::Fill(1),
                 Constraint::Length(1),
                 Constraint::Length(1),
             ])
             .areas(frame.area());
 
-            MessageStream::render(state, session_area, frame);
+            WidgetStream::render(state, stream_area, frame);
             Separator::render(separator_area, frame);
             StatusLine::render(state, statusline_area, frame);
         })?;
