@@ -10,7 +10,7 @@ description = "An agent in the terminal"
 
 [dependencies]
 anyhow = "1.0.104"
-async-openai = { version = "0.41.3", features = ["responses", "completions"] }
+async-openai = { version = "0.41.3", features = ["responses"] }
 clap = { version = "4.6.1", features = ["derive"] }
 crossbeam-channel = "0.5.16"
 crossterm = { version = "0.29.0" }
