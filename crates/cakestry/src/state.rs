@@ -1,39 +1,36 @@
-use std::cmp;
-
 use anyhow::{Result, anyhow};
 use async_openai::types::responses::{
-    EasyInputContent, EasyInputMessage, FunctionCallOutput, FunctionCallOutputItemParam,
-    FunctionTool, FunctionToolCall, InputItem, InputParam, Role, Tool,
+    EasyInputMessage, FunctionCallOutputItemParam, FunctionTool, FunctionToolCall, InputItem,
+    InputParam, Item, Role, Tool as OpenAITool, WebSearchActionSearch, WebSearchActionSearchSource,
+    WebSearchCallStatus, WebSearchTool, WebSearchToolCall, WebSearchToolCallAction,
 };
 
-use crate::config::{Config, Provider};
+use crate::config::{Config, Provider, Tool};
 
 pub mod buffer;
 pub mod entry;
+pub mod scroll;
 
 use buffer::TextBuffer;
-use entry::{Entry, Message};
+use entry::{Entry, LocalTool, RemoteTool, ToolKind, ToolStatus};
+use scroll::Scroll;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub enum Mode {
+    #[default]
     Prompt,
     Command,
     Scroll,
 }
 
-#[derive(Clone, Copy)]
-pub enum ResponseStage {
-    Create,
-    Think,
-    Answer,
-    Finish,
+#[derive(Clone, Copy, Default)]
+pub enum Turn {
+    #[default]
+    User,
+    Assistant,
 }
 
-pub enum ToolCallStage {
-    Create,
-    Finish,
-}
-
+#[derive(Default)]
 pub struct State {
     // Rendering and Storage.
     pub entries: Vec<Entry>,
@@ -41,39 +38,21 @@ pub struct State {
     pub prompt_buffer: TextBuffer,
     pub command_buffer: TextBuffer,
     pub tick_icons: [&'static str; 10],
-    pub tick_index: usize,
 
     // Dynamic Configuration.
     pub providers: Vec<Provider>,
     pub provider_index: usize,
-    pub tools: Vec<Tool>,
+    pub tools: Vec<OpenAITool>,
 
     // Operation Logic.
     pub mode: Mode,
-    pub toolcall_stage: ToolCallStage,
-    pub response_stage: ResponseStage,
+    pub turn: Turn,
     pub should_exit: bool,
-}
-
-#[derive(Default, Clone, Copy, Debug)]
-pub struct Scroll {
-    pub value: usize,
-    pub limit: usize,
-}
-
-impl Mode {
-    pub fn name(&self) -> &str {
-        match self {
-            Mode::Prompt => "Prompt",
-            Mode::Command => "Command",
-            Mode::Scroll => "Scroll",
-        }
-    }
 }
 
 impl State {
     pub fn build(config: Config) -> Result<Self> {
-        let entries = vec![Message::new(Role::System, config.system_prompt).into()];
+        let entries = vec![Entry::SystemPrompt(config.system_prompt)];
 
         let providers = config.providers;
         let provider_index = providers
@@ -89,35 +68,32 @@ impl State {
         let tools = match config.tools {
             Some(tools) => tools
                 .into_iter()
-                .map(|tool| {
-                    FunctionTool {
-                        name: tool.name,
-                        parameters: tool.parameters.map(|v| v.into()),
-                        description: tool.description,
+                .map(|tool| match tool {
+                    Tool::Function {
+                        name,
+                        parameters,
+                        description,
+                    } => FunctionTool {
+                        name,
+                        parameters: parameters.map(|v| v.into()),
+                        description,
                         ..FunctionTool::default()
                     }
-                    .into()
+                    .into(),
+                    Tool::WebSearch => WebSearchTool::default().into(),
                 })
                 .collect(),
             None => Vec::new(),
         };
-
         let tick_icons = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
         Ok(Self {
             entries,
-            scroll: Scroll::default(),
-            prompt_buffer: TextBuffer::default(),
-            command_buffer: TextBuffer::default(),
             tick_icons,
-            tick_index: 0,
             providers,
             provider_index,
             tools,
-            mode: Mode::Prompt,
-            toolcall_stage: ToolCallStage::Finish,
-            response_stage: ResponseStage::Finish,
-            should_exit: false,
+            ..Self::default()
         })
     }
 
@@ -125,69 +101,107 @@ impl State {
         &self.providers[self.provider_index].model
     }
 
-    pub fn tick_icon(&self) -> &str {
-        self.tick_icons[self.tick_index]
+    pub fn tick_icon(&self, index: usize) -> &str {
+        self.tick_icons[index]
     }
 
     pub fn input_param(&self) -> InputParam {
-        self.entries
-            .iter()
-            .map(|entry| match entry {
-                Entry::Message(message) => EasyInputMessage {
-                    role: message.role,
-                    content: EasyInputContent::Text(message.content.clone()),
-                    ..EasyInputMessage::default()
+        let mut items: Vec<InputItem> = Vec::with_capacity(self.entries.len());
+
+        for entry in self.entries.iter() {
+            match entry {
+                Entry::SystemPrompt(content) => {
+                    items.push(make_message(Role::System, content.clone()))
                 }
-                .into(),
-                Entry::ToolCall(call) => InputItem::Item(
-                    FunctionToolCall {
-                        call_id: call.call_id.clone(),
-                        name: call.name.clone(),
-                        arguments: call.arguments.clone(),
-                        id: None,
-                        status: None,
-                        namespace: None,
-                    }
-                    .into(),
-                ),
-                Entry::ToolCallResult(result) => InputItem::Item(
-                    FunctionCallOutputItemParam {
-                        call_id: result.call_id.clone(),
-                        output: FunctionCallOutput::Text(result.content.clone()),
-                        id: None,
-                        status: None,
-                    }
-                    .into(),
-                ),
-            })
-            .collect::<Vec<_>>()
-            .into()
-    }
-}
+                Entry::UserPrompt(content) => items.push(make_message(Role::User, content.clone())),
+                Entry::AssistantResponse { stage, content } => {
+                    match
+                }
+                Entry::AssistantResponse(content) => {
+                    items.push(make_message(Role::Assistant, content.clone()))
+                }
+                Entry::ToolCall { id, kind, status } => match kind {
+                    ToolKind::Local(local) => match local {
+                        LocalTool::Function { name, arguments } => {
+                            // Current context management strategy is to wait all lanuched tools to
+                            // finish before sending the next request.
+                            // Therefore by the time of making input params for next request, all
+                            // tools, either remote or local should have finished execution.
+                            let output = match status {
+                                ToolStatus::Success { output } => output,
+                                ToolStatus::Failure { error } => error,
+                                ToolStatus::Running { .. } => {
+                                    panic!("tool call status should be success or failure")
+                                }
+                            };
 
-impl Scroll {
-    pub fn up(self, value: usize) -> Self {
-        Self {
-            value: self.value.saturating_sub(value),
-            limit: self.limit,
-        }
-    }
+                            items.push(make_function_call(
+                                id.clone(),
+                                name.clone(),
+                                arguments.clone(),
+                            ));
 
-    pub fn down(self, value: usize) -> Self {
-        if self.value < self.limit {
-            Self {
-                value: cmp::min(self.value.saturating_add(value), value),
-                limit: self.limit,
+                            items.push(make_function_output(
+                                id.clone(),
+                                name.clone(),
+                                output.clone().unwrap_or_default(),
+                            ));
+                        }
+                    },
+                    ToolKind::Remote(remote) => match remote {
+                        // The service will not return the raw web search tool call result, but
+                        // instead return a summary in a form of response.
+                        RemoteTool::WebSearch { queries, sources } => {
+                            let status = match status {
+                                ToolStatus::Success { .. } => WebSearchCallStatus::Completed,
+                                ToolStatus::Failure { .. } => WebSearchCallStatus::Failed,
+                                _ => {
+                                    panic!(
+                                        "web search tool call status should be success or failure"
+                                    )
+                                }
+                            };
+
+                            items.push(make_search_call(
+                                id.clone(),
+                                status,
+                                queries.clone(),
+                                sources.clone(),
+                            ));
+                        }
+                    },
+                },
             }
-        } else {
-            self
         }
-    }
 
-    pub fn limit(self, limit: usize) -> Self {
-        Self {
-            value: self.value,
-            limit,
+        items.into()
+    }
+}
+
+impl Mode {
+    pub fn name(&self) -> &str {
+        match self {
+            Mode::Prompt => "Prompt",
+            Mode::Command => "Command",
+            Mode::Scroll => "Scroll",
         }
     }
 }
+
+
+
+
+fn make_function_output(call_id: String, name: String, output: String) -> InputItem {
+    Item::from(FunctionCallOutputItemParam {
+        call_id: call_id.into(),
+        name: name.into(),
+        output: output.into(),
+        id: None,
+        namespace: None,
+        status: None,
+        caller: None,
+    })
+    .into()
+}
+
+

@@ -11,6 +11,26 @@ pub struct Config {
     pub tools: Option<Vec<Tool>>,
 }
 
+#[derive(Deserialize, Clone, Debug)]
+pub struct Provider {
+    pub name: String,
+    pub model: String,
+    pub base_url: String,
+    // TODO: use keyring to makes this as secret.
+    pub api_key: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum Tool {
+    Function {
+        name: String,
+        parameters: Option<String>,
+        description: Option<String>,
+    },
+    WebSearch,
+}
+
 impl Config {
     pub fn from_file(path: &str) -> Result<Config> {
         let content = fs::read_to_string(path)
@@ -18,23 +38,4 @@ impl Config {
 
         toml::from_str(&content).context("failed to parse config content")
     }
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct Provider {
-    /// Example: "DeepSeek".
-    pub name: String,
-    /// Example: "deepkseek-v4-flash"
-    pub model: String,
-    /// Example: "https://api.deepseek.com"
-    pub base_url: String,
-    /// Example: "sk-xxx", TODO: use keyring to makes this as secret.
-    pub api_key: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Tool {
-    pub name: String,
-    pub parameters: Option<String>,
-    pub description: Option<String>,
 }

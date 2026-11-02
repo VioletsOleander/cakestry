@@ -1,125 +1,143 @@
-use async_openai::types::responses::{FunctionToolCall, OutputMessage, OutputMessageContent, Role};
-
-pub trait LastMessage {
-    /// Return the last message with `role`, panic if not found.
-    fn last_message(&mut self, role: Role) -> &mut Message;
-}
-
-pub trait LastToolCall {
-    /// Return the last tool call, panic if not found.
-    fn last_toolcall(&mut self) -> &mut ToolCall;
-}
+use anyhow::Error;
+use async_openai::types::responses::{
+    EasyInputMessage, FunctionToolCall, InputItem, Item, ReasoningItem, Role, SummaryPart,
+    SummaryTextContent, WebSearchToolCall,
+};
 
 pub enum Entry {
-    Message(Message),
-    ToolCall(ToolCall),
-    ToolCallResult(ToolCallResult),
+    SystemPrompt(String),
+    UserPrompt(String),
+    AssistantResponse {
+        stage: ResponseStage,
+        content: AssistantResponseContent,
+    },
+    ToolResponse {
+        stage: ResponseStage,
+        content: ToolResponseContent,
+    },
 }
 
-pub struct Message {
-    pub role: Role,
-    pub content: String,
+pub enum ResponseStage {
+    Progress { tick: usize },
+    Complete { success: bool },
 }
 
-pub struct ToolCall {
-    pub call_id: String,
-    pub name: String,
-    pub arguments: String,
+pub enum AssistantResponseContent {
+    Reason(String),
+    Answer(String),
+    Invoke { id: String, tool: Tool },
 }
 
-pub struct ToolCallResult {
-    pub call_id: String,
-    pub content: String,
+pub enum ToolResponseContent {
+    Function { id: String, output: String },
+    WebSearch {},
 }
 
-impl LastMessage for Vec<Entry> {
-    fn last_message(&mut self, role: Role) -> &mut Message {
-        self.iter_mut()
-            .rev()
-            .find_map(|entry| match entry {
-                Entry::Message(message) if message.role == role => Some(message),
-                _ => None,
-            })
-            .unwrap_or_else(|| panic!("an message entry with role {:?} should exist", role))
-    }
+pub enum Tool {
+    Local(LocalTool),
+    Remote(RemoteTool),
 }
 
-impl LastToolCall for Vec<Entry> {
-    fn last_toolcall(&mut self) -> &mut ToolCall {
-        self.iter_mut()
-            .rev()
-            .find_map(|entry| match entry {
-                Entry::ToolCall(tool_call) => Some(tool_call),
-                _ => None,
-            })
-            .expect("a tool call entry should exist")
-    }
+pub enum LocalTool {
+    Function { name: String, arguments: String },
 }
 
-impl From<Message> for Entry {
-    fn from(value: Message) -> Self {
-        Entry::Message(value)
-    }
+pub enum RemoteTool {
+    WebSearch {
+        queries: Option<Vec<String>>,
+        sources: Option<Vec<String>>,
+    },
 }
 
-impl From<ToolCall> for Entry {
-    fn from(value: ToolCall) -> Self {
-        Entry::ToolCall(value)
-    }
-}
+impl TryFrom<&Entry> for InputItem {
+    type Error = Error;
 
-impl From<ToolCallResult> for Entry {
-    fn from(value: ToolCallResult) -> Self {
-        Entry::ToolCallResult(value)
-    }
-}
-
-impl Message {
-    pub fn new(role: Role, content: String) -> Self {
-        Self { role, content }
-    }
-
-    pub fn push_content(&mut self, delta: &str) {
-        self.content.push_str(delta);
-    }
-}
-
-impl From<OutputMessage> for Message {
-    fn from(value: OutputMessage) -> Self {
-        let content = value
-            .content
-            .into_iter()
-            .map(|content| match content {
-                OutputMessageContent::OutputText(output_text) => output_text.text,
-                OutputMessageContent::Refusal(refusal) => refusal.refusal,
-            })
-            .fold(String::new(), |acc, v| acc + &v);
-
-        Self {
-            content,
-            role: Role::Assistant,
+    fn try_from(value: &Entry) -> Result<Self, Self::Error> {
+        match value {
+            Entry::SystemPrompt(content) => Ok(make_message(Role::System, content.clone()).into()),
+            Entry::UserPrompt(content) => Ok(make_message(Role::User, content.clone()).into()),
+            Entry::AssistantResponse { stage, content } => match content {
+                AssistantResponseContent::Reason(content) => {
+                    Ok(Item::from(make_reasoning(content.clone())).into())
+                }
+                AssistantResponseContent::Answer(content) => {
+                    Ok(make_message(Role::User, content.clone()).into())
+                }
+                AssistantResponseContent::Invoke { id, tool } => match tool {
+                    Tool::Local(tool) => match tool {
+                        LocalTool::Function { name, arguments } => Ok(Item::from(
+                            make_function_call(id.clone(), name.clone(), arguments.clone()),
+                        )
+                        .into()),
+                    },
+                    Tool::Remote(tool) => match tool {
+                        RemoteTool::WebSearch { queries, sources } => Ok(Item::from(value).into()),
+                    },
+                },
+            },
         }
     }
 }
 
-impl ToolCall {
-    pub fn push_arguments(&mut self, delta: &str) {
-        self.arguments.push_str(delta);
+fn make_message(role: Role, content: String) -> EasyInputMessage {
+    EasyInputMessage {
+        role,
+        content: content.into(),
+        ..EasyInputMessage::default()
     }
 }
 
-impl From<FunctionToolCall> for ToolCall {
-    fn from(value: FunctionToolCall) -> Self {
-        Self {
-            call_id: value.call_id,
-            name: value.name,
-            arguments: value.arguments,
-        }
+fn make_reasoning(content: String) -> ReasoningItem {
+    ReasoningItem {
+        summary: vec![SummaryPart::SummaryText(SummaryTextContent {
+            text: content,
+        })],
+        id: None,
+        content: None,
+        encrypted_content: None,
+        status: None,
     }
 }
 
-impl ToolCallResult {
-    pub fn new(call_id: String, content: String) -> Self {
-        Self { call_id, content }
+fn make_function_call(call_id: String, name: String, arguments: String) -> FunctionToolCall {
+    FunctionToolCall {
+        call_id,
+        name,
+        arguments,
+        id: None,
+        namespace: None,
+        status: None,
+        caller: None,
+        r#async: None,
+    }
+}
+
+fn make_search_call(
+    id: String,
+    status: WebSearchCallStatus,
+    queries: Option<Vec<String>>,
+    sources: Option<Vec<String>>,
+) -> WebSearchToolCall {
+    let sources = match sources {
+        Some(v) => Some(
+            v.into_iter()
+                .map(|s| WebSearchActionSearchSource {
+                    r#type: "url".to_string(),
+                    url: s,
+                })
+                .collect(),
+        ),
+        None => None,
+    };
+
+    WebSearchToolCall {
+        id,
+        status,
+        action: WebSearchToolCallAction::Search(WebSearchActionSearch {
+            #[allow(deprecated)]
+            query: None,
+            queries,
+            sources,
+        }),
     }
 }

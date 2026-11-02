@@ -1,7 +1,7 @@
 use crate::event::ToolEvent;
 use crate::event::service::{ResponseEventService, TickEventService};
 use crate::state::entry::ToolCallResult;
-use crate::state::{ResponseStage, State, ToolCallStage};
+use crate::state::{AssistantStage, State, ToolCallStage};
 
 pub struct ToolEventHandler<'a> {
     resp_service: &'a ResponseEventService,
@@ -29,7 +29,7 @@ impl<'a> ToolEventHandler<'a> {
         );
         self.tick_service.run();
 
-        state.response_stage = ResponseStage::Create;
+        state.response_stage = AssistantStage::Create;
     }
 
     fn stop_tick(&self, state: &State) {

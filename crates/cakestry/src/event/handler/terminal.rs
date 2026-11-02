@@ -1,12 +1,11 @@
 use anyhow::Result;
-use async_openai::types::responses::Role;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind};
 use crossterm::terminal;
 
 use crate::command::CommandHandler;
 use crate::event::service::{ResponseEventService, TickEventService};
-use crate::state::entry::Message;
-use crate::state::{Mode, ResponseStage, State, ToolCallStage};
+use crate::state::entry::Entry;
+use crate::state::{AssistantStage, Mode, State, Turn};
 
 pub struct TerminalEventHandler<'a> {
     resp_service: &'a ResponseEventService,
@@ -160,11 +159,10 @@ impl<'a> TerminalEventHandler<'a> {
     }
 
     fn submit_prompt(&self, state: &mut State) {
-        if matches!(state.response_stage, ResponseStage::Finish)
-            && matches!(state.toolcall_stage, ToolCallStage::Finish)
+        if matches!(state.turn, Turn::User)
             && let Some(prompt) = state.prompt_buffer.take_content()
         {
-            state.entries.push(Message::new(Role::User, prompt).into());
+            state.entries.push(Entry::UserPrompt(prompt));
 
             self.resp_service.create_responses(
                 state.input_param(),
@@ -173,7 +171,7 @@ impl<'a> TerminalEventHandler<'a> {
             );
             self.tick_service.run();
 
-            state.response_stage = ResponseStage::Create;
+            state.turn = Turn::Assistant(AssistantStage::Create)
         }
     }
 

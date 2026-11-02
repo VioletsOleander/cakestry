@@ -3,7 +3,7 @@ use async_openai::types::responses::{OutputItem, ResponseStreamEvent, Role};
 
 use crate::event::service::{TickEventService, ToolEventService};
 use crate::state::entry::{LastMessage, LastToolCall, Message, ToolCall};
-use crate::state::{ResponseStage, State, ToolCallStage};
+use crate::state::{AssistantStage, State, ToolCallStage};
 
 pub struct ResponseEventHandler<'a> {
     tick_service: &'a TickEventService,
@@ -31,19 +31,19 @@ impl<'a> ResponseEventHandler<'a> {
         match event {
             ResponseStreamEvent::ResponseOutputItemAdded(event) => match event.item {
                 OutputItem::Reasoning(_) => {
-                    state.response_stage = ResponseStage::Think;
+                    state.response_stage = AssistantStage::Think;
                 }
                 OutputItem::Message(message) => {
                     self.stop_tick(state);
 
                     state.entries.push(Message::from(message).into());
-                    state.response_stage = ResponseStage::Answer;
+                    state.response_stage = AssistantStage::Answer;
                 }
                 OutputItem::FunctionCall(call) => {
                     self.stop_tick(state);
 
                     state.entries.push(ToolCall::from(call).into());
-                    state.response_stage = ResponseStage::Answer;
+                    state.response_stage = AssistantStage::Answer;
                 }
                 _ => (),
             },
@@ -62,18 +62,18 @@ impl<'a> ResponseEventHandler<'a> {
                         .run(call.call_id, call.name, call.arguments);
                     self.tick_service.run();
 
-                    state.response_stage = ResponseStage::Finish;
+                    state.response_stage = AssistantStage::Finish;
                     state.toolcall_stage = ToolCallStage::Create;
                 }
             }
             ResponseStreamEvent::ResponseCompleted(_) => {
-                state.response_stage = ResponseStage::Finish;
+                state.response_stage = AssistantStage::Finish;
             }
             ResponseStreamEvent::ResponseIncomplete(_) => {
-                state.response_stage = ResponseStage::Finish;
+                state.response_stage = AssistantStage::Finish;
             }
             ResponseStreamEvent::ResponseFailed(_) => {
-                state.response_stage = ResponseStage::Finish;
+                state.response_stage = AssistantStage::Finish;
             }
             _ => (),
         }
@@ -81,14 +81,14 @@ impl<'a> ResponseEventHandler<'a> {
 
     fn handle_error(&self, _error: OpenAIError, state: &mut State) {
         self.stop_tick(state);
-        state.response_stage = ResponseStage::Finish;
+        state.response_stage = AssistantStage::Finish;
     }
 
     fn stop_tick(&self, state: &State) {
         // Match response stage to avoid sending TickStopEvent multiple times.
         if matches!(
             state.response_stage,
-            ResponseStage::Create | ResponseStage::Think
+            AssistantStage::Create | AssistantStage::Think
         ) {
             self.tick_service.stop();
         }

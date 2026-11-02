@@ -9,7 +9,7 @@ use ratatui::widgets::Widget;
 use unicode_width::UnicodeWidthStr;
 
 use crate::state::entry::{Entry, Message, ToolCall, ToolCallResult};
-use crate::state::{Mode, ResponseStage, State, ToolCallStage};
+use crate::state::{Mode, AssistantStage, State, ToolCallStage};
 
 mod textwrap;
 mod widget;
@@ -130,8 +130,8 @@ fn render_toolcall_result(
 
 fn render_tick(state: &State, context: &mut RangeContext, area: Rect, buf: &mut Buffer) {
     if let Some(content) = match state.response_stage {
-        ResponseStage::Create => Some(format!("{} waiting", state.tick_icon())),
-        ResponseStage::Think => Some(format!("{} thinking", state.tick_icon())),
+        AssistantStage::Create => Some(format!("{} waiting", state.tick_icon())),
+        AssistantStage::Think => Some(format!("{} thinking", state.tick_icon())),
         _ => match state.toolcall_stage {
             ToolCallStage::Create => Some(format!("{} calling", state.tick_icon())),
             _ => None,
