@@ -4,66 +4,61 @@ use async_openai::types::responses::{
     SummaryTextContent, WebSearchToolCall,
 };
 
-pub enum Entry {
-    SystemPrompt(String),
-    UserPrompt(String),
-    AssistantResponse {
-        stage: ResponseStage,
-        content: AssistantResponseContent,
-    },
-    ToolResponse {
-        stage: ResponseStage,
-        content: ToolResponseContent,
+pub enum Record {
+    Prompt(String),
+    Response {
+        status: ResponseStatus,
+        content: ResponseContent,
     },
 }
 
-pub enum ResponseStage {
-    Progress { tick: usize },
-    Complete { success: bool },
+pub enum ResponseStatus {
+    Progress,
+    Complete,
 }
 
-pub enum AssistantResponseContent {
+pub enum ResponseContent {
     Reason(String),
     Answer(String),
-    Invoke { id: String, tool: Tool },
+    ToolInvoke {
+        id: String,
+        content: ToolInvokeContent,
+    },
+    ToolResult {
+        id: String,
+        content: String,
+    },
 }
 
-pub enum ToolResponseContent {
-    Function { id: String, output: String },
-    WebSearch {},
-}
-
-pub enum Tool {
-    Local(LocalTool),
-    Remote(RemoteTool),
-}
-
-pub enum LocalTool {
-    Function { name: String, arguments: String },
-}
-
-pub enum RemoteTool {
+pub enum ToolInvokeContent {
+    Function {
+        name: String,
+        arguments: String,
+    },
     WebSearch {
         queries: Option<Vec<String>>,
         sources: Option<Vec<String>>,
     },
 }
 
-impl TryFrom<&Entry> for InputItem {
+impl TryFrom<&Record> for InputItem {
     type Error = Error;
 
-    fn try_from(value: &Entry) -> Result<Self, Self::Error> {
+    fn try_from(value: &Record) -> Result<Self, Self::Error> {
         match value {
-            Entry::SystemPrompt(content) => Ok(make_message(Role::System, content.clone()).into()),
-            Entry::UserPrompt(content) => Ok(make_message(Role::User, content.clone()).into()),
-            Entry::AssistantResponse { stage, content } => match content {
-                AssistantResponseContent::Reason(content) => {
+            Record::SystemPrompt(content) => Ok(make_message(Role::System, content.clone()).into()),
+            Record::UserPrompt(content) => Ok(make_message(Role::User, content.clone()).into()),
+            Record::Assistant {
+                status: stage,
+                content,
+            } => match content {
+                AssistantContent::Reason(content) => {
                     Ok(Item::from(make_reasoning(content.clone())).into())
                 }
-                AssistantResponseContent::Answer(content) => {
+                AssistantContent::Answer(content) => {
                     Ok(make_message(Role::User, content.clone()).into())
                 }
-                AssistantResponseContent::Invoke { id, tool } => match tool {
+                AssistantContent::Invoke { id, tool } => match tool {
                     Tool::Local(tool) => match tool {
                         LocalTool::Function { name, arguments } => Ok(Item::from(
                             make_function_call(id.clone(), name.clone(), arguments.clone()),
@@ -112,7 +107,7 @@ fn make_function_call(call_id: String, name: String, arguments: String) -> Funct
     }
 }
 
-fn make_search_call(
+fn make_websearch_call(
     id: String,
     status: WebSearchCallStatus,
     queries: Option<Vec<String>>,

@@ -9,7 +9,7 @@ use ratatui::widgets::Widget;
 use unicode_width::UnicodeWidthStr;
 
 use crate::state::entry::{Entry, Message, ToolCall, ToolCallResult};
-use crate::state::{Mode, AssistantStage, State, ToolCallStage};
+use crate::state::{AssistantStage, Mode, State, ToolCallStage};
 
 mod textwrap;
 mod widget;
@@ -18,8 +18,9 @@ use textwrap::wrap_line;
 use widget::{Paragraph, Prompt, Scroll, Separator};
 
 const MIN_WIDTH: u16 = 3;
+const TICK_ICONS: [&'static str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-pub struct WidgetStream;
+pub struct Stream;
 
 /// Range in absolute y coordinates, with inclusive start and exclusive end.
 #[derive(Clone, Copy)]
@@ -33,7 +34,7 @@ struct RangeContext {
     widget: Range,
 }
 
-impl WidgetStream {
+impl Stream {
     pub fn render(state: &mut State, area: Rect, frame: &mut Frame) {
         if area.width < MIN_WIDTH {
             return;

@@ -17,7 +17,7 @@ mod stream;
 
 use separator::Separator;
 use status::StatusLine;
-use stream::WidgetStream;
+use stream::Stream;
 
 pub struct Tui {
     terminal: Terminal<CrosstermBackend<Stdout>>,
@@ -47,7 +47,7 @@ impl Tui {
             ])
             .areas(frame.area());
 
-            WidgetStream::render(state, stream_area, frame);
+            Stream::render(state, stream_area, frame);
             Separator::render(separator_area, frame);
             StatusLine::render(state, statusline_area, frame);
         })?;

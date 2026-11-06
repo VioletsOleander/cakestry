@@ -36,6 +36,7 @@ impl ResponseEventService {
         })
     }
 
+    // TODO: support cancellation
     pub fn create_responses(&self, input: InputParam, tools: Vec<Tool>, model: String) {
         // Request build error implies code logic error and therefore is unrecoverable.
         let request = CreateResponseArgs::default()

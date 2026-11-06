@@ -6,7 +6,7 @@ use serde::Deserialize;
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub system_prompt: String,
-    pub provider: String,
+    pub default_provider: String,
     pub providers: Vec<Provider>,
     pub tools: Option<Vec<Tool>>,
 }
@@ -14,21 +14,25 @@ pub struct Config {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Provider {
     pub name: String,
-    pub model: String,
     pub base_url: String,
-    // TODO: use keyring to makes this as secret.
     pub api_key: String,
+    pub models: Vec<String>,
+    pub default_model: String,
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(tag = "type", rename_all = "lowercase")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum Tool {
     Function {
         name: String,
         parameters: Option<String>,
         description: Option<String>,
+        enabled: bool,
     },
-    WebSearch,
+    WebSearch {
+        name: String,
+        enabled: bool,
+    },
 }
 
 impl Config {

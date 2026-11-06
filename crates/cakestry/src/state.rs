@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result};
 use async_openai::types::responses::{
     EasyInputMessage, FunctionCallOutputItemParam, FunctionTool, FunctionToolCall, InputItem,
     InputParam, Item, Role, Tool as OpenAITool, WebSearchActionSearch, WebSearchActionSearchSource,
@@ -8,105 +8,54 @@ use async_openai::types::responses::{
 use crate::config::{Config, Provider, Tool};
 
 pub mod buffer;
-pub mod entry;
-pub mod scroll;
+pub mod session;
 
 use buffer::TextBuffer;
-use entry::{Entry, LocalTool, RemoteTool, ToolKind, ToolStatus};
-use scroll::Scroll;
-
-#[derive(Clone, Copy, Default)]
-pub enum Mode {
-    #[default]
-    Prompt,
-    Command,
-    Scroll,
-}
-
-#[derive(Clone, Copy, Default)]
-pub enum Turn {
-    #[default]
-    User,
-    Assistant,
-}
+use session::Session;
 
 #[derive(Default)]
 pub struct State {
-    // Rendering and Storage.
-    pub entries: Vec<Entry>,
-    pub scroll: Scroll,
-    pub prompt_buffer: TextBuffer,
+    pub sessions: Vec<Session>,
+    pub session_index: usize,
     pub command_buffer: TextBuffer,
-    pub tick_icons: [&'static str; 10],
 
-    // Dynamic Configuration.
     pub providers: Vec<Provider>,
-    pub provider_index: usize,
-    pub tools: Vec<OpenAITool>,
+    pub tools: Vec<Tool>,
 
-    // Operation Logic.
-    pub mode: Mode,
-    pub turn: Turn,
+    pub tick: usize,
     pub should_exit: bool,
 }
 
 impl State {
     pub fn build(config: Config) -> Result<Self> {
-        let entries = vec![Entry::SystemPrompt(config.system_prompt)];
-
+        let tools = config.tools.unwrap_or_default();
         let providers = config.providers;
-        let provider_index = providers
-            .iter()
-            .position(|provider| provider.name == config.provider)
-            .ok_or_else(|| {
-                anyhow!(
-                    "failed to find configuration of provider '{}'",
-                    config.provider
-                )
-            })?;
-
-        let tools = match config.tools {
-            Some(tools) => tools
-                .into_iter()
-                .map(|tool| match tool {
-                    Tool::Function {
-                        name,
-                        parameters,
-                        description,
-                    } => FunctionTool {
-                        name,
-                        parameters: parameters.map(|v| v.into()),
-                        description,
-                        ..FunctionTool::default()
-                    }
-                    .into(),
-                    Tool::WebSearch => WebSearchTool::default().into(),
-                })
-                .collect(),
-            None => Vec::new(),
-        };
-        let tick_icons = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+        let sessions = vec![Session::new(
+            config.system_prompt,
+            providers
+                .iter()
+                .position(|v| v.name == config.default_provider)
+                .with_context(|| {
+                    format!(
+                        "failed to find default provider {}",
+                        config.default_provider
+                    )
+                })?,
+        )];
 
         Ok(Self {
-            entries,
-            tick_icons,
+            sessions,
             providers,
-            provider_index,
             tools,
             ..Self::default()
         })
     }
+}
 
-    pub fn model(&self) -> &str {
-        &self.providers[self.provider_index].model
-    }
-
-    pub fn tick_icon(&self, index: usize) -> &str {
-        self.tick_icons[index]
-    }
+impl State {
 
     pub fn input_param(&self) -> InputParam {
-        let mut items: Vec<InputItem> = Vec::with_capacity(self.entries.len());
+        let mut items: Vec<InputItem> = Vec::with_capacity(self..len());
 
         for entry in self.entries.iter() {
             match entry {
@@ -178,17 +127,6 @@ impl State {
     }
 }
 
-impl Mode {
-    pub fn name(&self) -> &str {
-        match self {
-            Mode::Prompt => "Prompt",
-            Mode::Command => "Command",
-            Mode::Scroll => "Scroll",
-        }
-    }
-}
-
-
 
 
 fn make_function_output(call_id: String, name: String, output: String) -> InputItem {
@@ -203,5 +141,3 @@ fn make_function_output(call_id: String, name: String, output: String) -> InputI
     })
     .into()
 }
-
-

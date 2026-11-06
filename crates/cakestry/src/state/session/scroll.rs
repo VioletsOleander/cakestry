@@ -7,17 +7,17 @@ pub struct Scroll {
 }
 
 impl Scroll {
-    pub fn up(self, value: usize) -> Self {
+    pub fn up(self, delta: usize) -> Self {
         Self {
-            value: self.value.saturating_sub(value),
+            value: self.value.saturating_sub(delta),
             limit: self.limit,
         }
     }
 
-    pub fn down(self, value: usize) -> Self {
+    pub fn down(self, delta: usize) -> Self {
         if self.value < self.limit {
             Self {
-                value: cmp::min(self.value.saturating_add(value), value),
+                value: cmp::min(self.value.saturating_add(delta), delta),
                 limit: self.limit,
             }
         } else {
