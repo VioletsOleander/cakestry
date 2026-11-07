@@ -1,7 +1,7 @@
-use anyhow::Error;
 use async_openai::types::responses::{
-    EasyInputMessage, FunctionToolCall, InputItem, Item, ReasoningItem, Role, SummaryPart,
-    SummaryTextContent, WebSearchToolCall,
+    EasyInputMessage, FunctionCallOutputItemParam, FunctionToolCall, InputItem, Item, OutputStatus,
+    ReasoningItem, ReasoningItemContent, ReasoningTextContent, Role, SummaryPart,
+    SummaryTextContent, WebSearchCallStatus, WebSearchToolCall, WebSearchToolCallAction,
 };
 
 pub enum Record {
@@ -12,18 +12,25 @@ pub enum Record {
     },
 }
 
+#[derive(Clone, Copy)]
 pub enum ResponseStatus {
-    Progress,
-    Complete,
+    InProgress,
+    InComplete,
+    Completed,
 }
 
 pub enum ResponseContent {
-    Reason(String),
+    Reason {
+        content: Option<String>,
+        // Vector of summary parts.
+        summary: Vec<String>,
+    },
     Answer(String),
     ToolInvoke {
         id: String,
         content: ToolInvokeContent,
     },
+    // Currently only for function result.
     ToolResult {
         id: String,
         content: String,
@@ -36,103 +43,89 @@ pub enum ToolInvokeContent {
         arguments: String,
     },
     WebSearch {
-        queries: Option<Vec<String>>,
-        sources: Option<Vec<String>>,
+        action: Option<WebSearchToolCallAction>,
+        status: WebSearchCallStatus,
     },
 }
 
-impl TryFrom<&Record> for InputItem {
-    type Error = Error;
-
-    fn try_from(value: &Record) -> Result<Self, Self::Error> {
+impl From<&Record> for InputItem {
+    fn from(value: &Record) -> Self {
         match value {
-            Record::SystemPrompt(content) => Ok(make_message(Role::System, content.clone()).into()),
-            Record::UserPrompt(content) => Ok(make_message(Role::User, content.clone()).into()),
-            Record::Assistant {
-                status: stage,
-                content,
-            } => match content {
-                AssistantContent::Reason(content) => {
-                    Ok(Item::from(make_reasoning(content.clone())).into())
-                }
-                AssistantContent::Answer(content) => {
-                    Ok(make_message(Role::User, content.clone()).into())
-                }
-                AssistantContent::Invoke { id, tool } => match tool {
-                    Tool::Local(tool) => match tool {
-                        LocalTool::Function { name, arguments } => Ok(Item::from(
-                            make_function_call(id.clone(), name.clone(), arguments.clone()),
-                        )
-                        .into()),
-                    },
-                    Tool::Remote(tool) => match tool {
-                        RemoteTool::WebSearch { queries, sources } => Ok(Item::from(value).into()),
-                    },
-                },
-            },
+            Record::Prompt(content) => EasyInputMessage {
+                role: Role::User,
+                content: content.clone().into(),
+                ..Default::default()
+            }
+            .into(),
+            Record::Response { status, content } => from_response(status, content),
         }
     }
 }
 
-fn make_message(role: Role, content: String) -> EasyInputMessage {
-    EasyInputMessage {
-        role,
-        content: content.into(),
-        ..EasyInputMessage::default()
+fn from_response(status: &ResponseStatus, content: &ResponseContent) -> InputItem {
+    match content {
+        ResponseContent::Reason { content, summary } => Item::from(ReasoningItem {
+            content: content.clone().map(|v| {
+                vec![ReasoningItemContent::ReasoningText(ReasoningTextContent {
+                    text: v,
+                })]
+            }),
+            summary: summary
+                .iter()
+                .map(|v| SummaryPart::SummaryText(SummaryTextContent { text: v.clone() }))
+                .collect(),
+            ..Default::default()
+        })
+        .into(),
+        ResponseContent::Answer(content) => EasyInputMessage {
+            role: Role::Assistant,
+            content: content.clone().into(),
+            ..Default::default()
+        }
+        .into(),
+        ResponseContent::ToolInvoke { id, content } => from_tool_invoke(&id, &content),
+        // Function call is managed locally so use the status type defined by us instaed of openai sdk.
+        ResponseContent::ToolResult { id, content } => from_tool_result(&id, &content, status),
     }
 }
 
-fn make_reasoning(content: String) -> ReasoningItem {
-    ReasoningItem {
-        summary: vec![SummaryPart::SummaryText(SummaryTextContent {
-            text: content,
-        })],
-        id: None,
-        content: None,
-        encrypted_content: None,
-        status: None,
+fn from_tool_invoke(id: &String, content: &ToolInvokeContent) -> InputItem {
+    match content {
+        ToolInvokeContent::Function { name, arguments } => Item::from(FunctionToolCall {
+            call_id: id.clone(),
+            name: name.clone(),
+            arguments: arguments.clone(),
+            ..Default::default()
+        })
+        .into(),
+        ToolInvokeContent::WebSearch { action, status } => Item::from(WebSearchToolCall {
+            id: id.clone(),
+            action: action.clone(),
+            status: status.clone(),
+        })
+        .into(),
     }
 }
 
-fn make_function_call(call_id: String, name: String, arguments: String) -> FunctionToolCall {
-    FunctionToolCall {
-        call_id,
-        name,
-        arguments,
+fn from_tool_result(id: &String, content: &String, status: &ResponseStatus) -> InputItem {
+    Item::from(FunctionCallOutputItemParam {
+        call_id: Some(id.clone()),
+        output: content.clone().into(),
+        status: Some(status.clone().into()),
         id: None,
         namespace: None,
-        status: None,
         caller: None,
-        r#async: None,
-    }
+        name: None,
+    })
+    .into()
 }
 
-fn make_websearch_call(
-    id: String,
-    status: WebSearchCallStatus,
-    queries: Option<Vec<String>>,
-    sources: Option<Vec<String>>,
-) -> WebSearchToolCall {
-    let sources = match sources {
-        Some(v) => Some(
-            v.into_iter()
-                .map(|s| WebSearchActionSearchSource {
-                    r#type: "url".to_string(),
-                    url: s,
-                })
-                .collect(),
-        ),
-        None => None,
-    };
-
-    WebSearchToolCall {
-        id,
-        status,
-        action: WebSearchToolCallAction::Search(WebSearchActionSearch {
-            #[allow(deprecated)]
-            query: None,
-            queries,
-            sources,
-        }),
+impl From<ResponseStatus> for OutputStatus {
+    fn from(value: ResponseStatus) -> Self {
+        match value {
+            ResponseStatus::InProgress => OutputStatus::InProgress,
+            ResponseStatus::InComplete => OutputStatus::Incomplete,
+            ResponseStatus::Completed => OutputStatus::Completed,
+        }
     }
 }

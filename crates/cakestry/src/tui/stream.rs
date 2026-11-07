@@ -20,8 +20,6 @@ use widget::{Paragraph, Prompt, Scroll, Separator};
 const MIN_WIDTH: u16 = 3;
 const TICK_ICONS: [&'static str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-pub struct Stream;
-
 /// Range in absolute y coordinates, with inclusive start and exclusive end.
 #[derive(Clone, Copy)]
 struct Range {
@@ -34,30 +32,28 @@ struct RangeContext {
     widget: Range,
 }
 
-impl Stream {
-    pub fn render(state: &mut State, area: Rect, frame: &mut Frame) {
-        if area.width < MIN_WIDTH {
-            return;
-        }
+pub fn render_stream(state: &mut State, area: Rect, frame: &mut Frame) {
+    if area.width < MIN_WIDTH {
+        return;
+    }
 
-        let buf = frame.buffer_mut();
-        let mut context = RangeContext::new(state, area);
+    let buf = frame.buffer_mut();
+    let mut context = RangeContext::new(state, area);
 
-        for entry in &state.entries {
-            match entry {
-                Entry::Message(message) => render_message(message, &mut context, area, buf),
-                Entry::ToolCall(call) => render_toolcall(call, &mut context, area, buf),
-                Entry::ToolCallResult(result) => {
-                    render_toolcall_result(result, &mut context, area, buf)
-                }
+    for entry in &state.entries {
+        match entry {
+            Entry::Message(message) => render_message(message, &mut context, area, buf),
+            Entry::ToolCall(call) => render_toolcall(call, &mut context, area, buf),
+            Entry::ToolCallResult(result) => {
+                render_toolcall_result(result, &mut context, area, buf)
             }
         }
-
-        render_tick(state, &mut context, area, buf);
-        render_prompt_buffer(state, &mut context, area, frame);
-
-        state.scroll = state.scroll.limit(context.widget.start);
     }
+
+    render_tick(state, &mut context, area, buf);
+    render_prompt_buffer(state, &mut context, area, frame);
+
+    state.scroll = state.scroll.limit(context.widget.start);
 }
 
 impl Range {

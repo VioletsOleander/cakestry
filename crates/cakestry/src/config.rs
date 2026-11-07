@@ -1,6 +1,7 @@
 use std::fs;
 
 use anyhow::{Context, Result};
+use async_openai::types::responses::{FunctionTool, Tool as OpenAITool, WebSearchTool};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -41,5 +42,25 @@ impl Config {
             .with_context(|| format!("failed to read content from path '{}'", path))?;
 
         toml::from_str(&content).context("failed to parse config content")
+    }
+}
+
+impl From<&Tool> for OpenAITool {
+    fn from(value: &Tool) -> Self {
+        match value {
+            Tool::Function {
+                name,
+                parameters,
+                description,
+                ..
+            } => FunctionTool {
+                name: name.clone(),
+                parameters: parameters.clone().map(Into::into),
+                description: description.clone(),
+                ..Default::default()
+            }
+            .into(),
+            Tool::WebSearch { .. } => WebSearchTool::default().into(),
+        }
     }
 }

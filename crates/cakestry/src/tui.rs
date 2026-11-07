@@ -5,19 +5,18 @@ use anyhow::Result;
 use crossterm::cursor::SetCursorStyle;
 use crossterm::execute;
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
-use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::widgets::{Fill, Widget};
+use ratatui::{Frame, Terminal};
 
 use crate::state::State;
 
-mod separator;
 mod status;
 mod stream;
 
-use separator::Separator;
-use status::StatusLine;
-use stream::Stream;
+use status::render_statusline;
+use stream::render_stream;
 
 pub struct Tui {
     terminal: Terminal<CrosstermBackend<Stdout>>,
@@ -47,9 +46,9 @@ impl Tui {
             ])
             .areas(frame.area());
 
-            Stream::render(state, stream_area, frame);
-            Separator::render(separator_area, frame);
-            StatusLine::render(state, statusline_area, frame);
+            render_stream(state, stream_area, frame);
+            render_seperator(separator_area, frame);
+            render_statusline(state, statusline_area, frame);
         })?;
 
         Ok(())
@@ -81,4 +80,8 @@ fn restore() {
                 .as_bytes(),
         );
     }
+}
+
+fn render_seperator(area: Rect, frame: &mut Frame) {
+    Fill::new("_").render(area, frame.buffer_mut());
 }

@@ -1,11 +1,16 @@
 use anyhow::Result;
+use async_openai::types::responses::{
+    EasyInputMessage, InputItem, InputParam, Role, Tool as OpenAITool,
+};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind};
 use crossterm::terminal;
 
 use crate::command::CommandHandler;
+use crate::config::Tool;
 use crate::event::service::{ResponseEventService, TickEventService};
-use crate::state::entry::Entry;
-use crate::state::{AssistantStage, Mode, State, Turn};
+use crate::state::State;
+use crate::state::session::Mode;
+use crate::state::session::record::Record;
 
 pub struct TerminalEventHandler<'a> {
     resp_service: &'a ResponseEventService,
@@ -22,7 +27,7 @@ impl<'a> TerminalEventHandler<'a> {
 
     pub fn handle(&self, event: Event, state: &mut State) -> Result<()> {
         match event {
-            Event::Key(key) => match state.mode {
+            Event::Key(key) => match state.session().mode {
                 Mode::Prompt => self.handle_prompt_key(key, state),
                 Mode::Command => self.handle_command_key(key, state),
                 Mode::Scroll => self.handle_scroll_key(key, state)?,
@@ -43,32 +48,32 @@ impl<'a> TerminalEventHandler<'a> {
         match key.modifiers {
             KeyModifiers::CONTROL => match key.code {
                 // CTRL-c: Exit prompt mode, enter command mode.
-                KeyCode::Char('c') => state.mode = Mode::Command,
+                KeyCode::Char('c') => state.session().mode = Mode::Command,
                 // CTRL-s: Exit prompt mode, enter scroll mode.
-                KeyCode::Char('s') => state.mode = Mode::Scroll,
+                KeyCode::Char('s') => state.session().mode = Mode::Scroll,
                 // CTRL-j: Break current line.
-                KeyCode::Char('j') => state.prompt_buffer.break_line(),
+                KeyCode::Char('j') => state.session().prompt_buffer.break_line(),
                 // CTRL-w: Delete a word backward.
-                KeyCode::Char('w') => state.prompt_buffer.delete_word_backward(),
+                KeyCode::Char('w') => state.session().prompt_buffer.delete_word_backward(),
                 // CTRL-u: Delete a line backward.
-                KeyCode::Char('u') => state.prompt_buffer.delete_line_backward(),
+                KeyCode::Char('u') => state.session().prompt_buffer.delete_line_backward(),
                 _ => (),
             },
             KeyModifiers::SHIFT => {
                 if let KeyCode::Char(ch) = key.code {
-                    state.prompt_buffer.insert_char(ch)
+                    state.session().prompt_buffer.insert_char(ch)
                 }
             }
             KeyModifiers::NONE => match key.code {
                 // Enter: Submit prompt
                 KeyCode::Enter => self.submit_prompt(state),
-                KeyCode::Char(ch) => state.prompt_buffer.insert_char(ch),
-                KeyCode::Delete => state.prompt_buffer.delete_char(),
-                KeyCode::Backspace => state.prompt_buffer.delete_prev_char(),
-                KeyCode::Left => state.prompt_buffer.move_cursor_left(),
-                KeyCode::Right => state.prompt_buffer.move_cursor_right(),
-                KeyCode::Up => state.prompt_buffer.move_cursor_up(),
-                KeyCode::Down => state.prompt_buffer.move_cursor_down(),
+                KeyCode::Char(ch) => state.session().prompt_buffer.insert_char(ch),
+                KeyCode::Delete => state.session().prompt_buffer.delete_char(),
+                KeyCode::Backspace => state.session().prompt_buffer.delete_prev_char(),
+                KeyCode::Left => state.session().prompt_buffer.move_cursor_left(),
+                KeyCode::Right => state.session().prompt_buffer.move_cursor_right(),
+                KeyCode::Up => state.session().prompt_buffer.move_cursor_up(),
+                KeyCode::Down => state.session().prompt_buffer.move_cursor_down(),
                 _ => (),
             },
             _ => (),
@@ -81,7 +86,7 @@ impl<'a> TerminalEventHandler<'a> {
                 // CTRL-s: Exit command mode, enter scroll mode.
                 KeyCode::Char('s') => {
                     state.command_buffer.clear();
-                    state.mode = Mode::Scroll;
+                    state.session().mode = Mode::Scroll;
                 }
                 // CTRL-j: Break current line.
                 KeyCode::Char('j') => state.command_buffer.break_line(),
@@ -91,23 +96,22 @@ impl<'a> TerminalEventHandler<'a> {
                 KeyCode::Char('u') => state.command_buffer.delete_line_backward(),
                 _ => (),
             },
-            KeyModifiers::SHIFT => {
-                if let KeyCode::Char(ch) = key.code {
-                    state.command_buffer.insert_char(ch)
-                }
+            KeyModifiers::SHIFT if let KeyCode::Char(ch) = key.code => {
+                state.command_buffer.insert_char(ch)
             }
+            KeyModifiers::SHIFT => {}
             KeyModifiers::NONE => match key.code {
                 // Esc: Exit command mode, enter prompt mode.
                 KeyCode::Esc => {
                     state.command_buffer.clear();
-                    state.mode = Mode::Prompt;
+                    state.session().mode = Mode::Prompt;
                 }
                 // Enter: Submit command.
                 KeyCode::Enter => self.submit_command(state),
                 // Backspace: Delete prev char or back to prompt mode.
                 KeyCode::Backspace => {
                     if state.command_buffer.is_empty() {
-                        state.mode = Mode::Prompt;
+                        state.session().mode = Mode::Prompt;
                     } else {
                         state.command_buffer.delete_prev_char();
                     }
@@ -126,7 +130,7 @@ impl<'a> TerminalEventHandler<'a> {
         match key.modifiers {
             KeyModifiers::CONTROL => match key.code {
                 // CTRL-c: Exit scroll mode, enter command mode.
-                KeyCode::Char('c') => state.mode = Mode::Command,
+                KeyCode::Char('c') => state.session().mode = Mode::Command,
                 // CTRL-u: Scroll up half screen.
                 KeyCode::Char('u') => scroll_up(state, (terminal::size()?.1 / 2) as usize),
                 // CTRL-d: Scroll down half screen.
@@ -143,9 +147,9 @@ impl<'a> TerminalEventHandler<'a> {
             },
             KeyModifiers::NONE => match key.code {
                 // Esc: Exit scroll mode, back to prompt mode.
-                KeyCode::Esc => state.mode = Mode::Prompt,
+                KeyCode::Esc => state.session().mode = Mode::Prompt,
                 // i: Exit scroll mode, back to prompt mode.
-                KeyCode::Char('i') => state.mode = Mode::Prompt,
+                KeyCode::Char('i') => state.session().mode = Mode::Prompt,
                 // Up: Scroll up one line.
                 KeyCode::Up => scroll_up(state, 1),
                 // Down: Scroll down one line.
@@ -159,19 +163,15 @@ impl<'a> TerminalEventHandler<'a> {
     }
 
     fn submit_prompt(&self, state: &mut State) {
-        if matches!(state.turn, Turn::User)
-            && let Some(prompt) = state.prompt_buffer.take_content()
-        {
-            state.entries.push(Entry::UserPrompt(prompt));
+        if let Some(prompt) = state.session().prompt_buffer.take_content() {
+            state.session().records.push(Record::Prompt(prompt));
 
             self.resp_service.create_responses(
-                state.input_param(),
-                state.tools.clone(),
-                state.model().to_string(),
+                make_input_param(state),
+                make_tools(state),
+                make_model(state),
             );
             self.tick_service.run();
-
-            state.turn = Turn::Assistant(AssistantStage::Create)
         }
     }
 
@@ -182,10 +182,57 @@ impl<'a> TerminalEventHandler<'a> {
     }
 }
 
-fn scroll_up(state: &mut State, value: usize) {
-    state.scroll = state.scroll.up(value);
+fn scroll_up(state: &mut State, delta: usize) {
+    state.session().scroll.up(delta);
 }
 
-fn scroll_down(state: &mut State, value: usize) {
-    state.scroll = state.scroll.down(value);
+fn scroll_down(state: &mut State, delta: usize) {
+    state.session().scroll.down(delta);
+}
+
+fn make_input_param(state: &mut State) -> InputParam {
+    let mut input_items: Vec<InputItem> = Vec::with_capacity(1 + state.session().records.len());
+
+    input_items.push(
+        EasyInputMessage {
+            role: Role::System,
+            content: state.session().system_prompt.clone().into(),
+            ..Default::default()
+        }
+        .into(),
+    );
+
+    for record in state.session().records.iter() {
+        input_items.push(record.into());
+    }
+
+    input_items.into()
+}
+
+fn make_tools(state: &mut State) -> Vec<OpenAITool> {
+    let mut tools: Vec<OpenAITool> = Vec::new();
+
+    for tool in state.tools.iter() {
+        match tool {
+            Tool::Function { enabled, .. } => {
+                if *enabled {
+                    tools.push(tool.into())
+                }
+            }
+            Tool::WebSearch { enabled, .. } => {
+                if *enabled {
+                    tools.push(tool.into());
+                }
+            }
+        }
+    }
+
+    tools
+}
+
+fn make_model(state: &mut State) -> String {
+    let session = &state.sessions[state.session_index];
+    let provider = &state.providers[session.provider_index];
+
+    provider.models[session.model_index].clone()
 }
